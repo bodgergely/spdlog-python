@@ -3,9 +3,9 @@ import logging
 import time
 import statistics
 import random
+import numpy as np
 
-
-speed_logger = spdlog.FileLogger('speedlogger', 'speedlog.log')
+speed_logger = spdlog.FileLogger('speedlogger', 'speedlog.log', False, False)
 
 
 
@@ -32,6 +32,13 @@ def generate_message(msg_len):
         msg += chr(c)
     return msg
 
+def generate_numpy_array(array_len):
+    return np.random.rand(array_len)
+
+def generate_numpy_array_str(array_len):
+    return f'{np.random.rand(array_len)}'
+
+
 
 
 @timed
@@ -54,10 +61,10 @@ def build_timings_per_len(message_lengths):
     return timings
 
 
-def candidate_logger(logger, name, epochs, repeat_cnt, worker):
+def candidate_logger(logger, name, epochs, repeat_cnt, message_generator, worker):
     for epoch in range(epochs):
         for msg_len in message_lengths:
-            msg = generate_message(msg_len)
+            msg = message_generator(msg_len)
             for _ in range(sub_epochs):
                 took = logger(msg, repeat_cnt)
                 timings[name][msg_len].append(took)
@@ -74,16 +81,16 @@ def lets_do_some_work():
 
 
 epochs = 20
-sub_epochs = 30
+sub_epochs = 10
 message_lengths = [10, 20, 40, 100, 300, 1000]
-repeat_cnt = 8
+repeat_cnt = 6
 
 
 timings = build_timings_per_len(message_lengths)
 
 
-candidate_logger(do_spdlog, 'spdlog', epochs, repeat_cnt, lets_do_some_work)
-candidate_logger(do_logging, 'logging', epochs, repeat_cnt, lets_do_some_work)
+candidate_logger(do_spdlog, 'spdlog', epochs, repeat_cnt, generate_numpy_array_str, lets_do_some_work)
+candidate_logger(do_logging, 'logging', epochs, repeat_cnt, generate_numpy_array_str, lets_do_some_work)
 
 
 def generate_stats(timings):
