@@ -217,22 +217,18 @@ BOOST_PYTHON_MODULE(spdlog)
     class_<ConsoleLogger>("ConsoleLogger", init<std::string, bool, bool, bool>())
         .def("info", &ConsoleLogger::info)
         .def("name", &ConsoleLogger::name)
-    // Add a regular member function.
         ;
     class_<FileLogger>("FileLogger", init<std::string, std::string, bool, bool>())
         .def("info", &FileLogger::info)
         .def("name", &Logger::name)
-        // Add a regular member function.
         ;
     class_<RotatingLogger>("RotatingLogger", init<std::string, std::string, bool, bool, bool>())
         .def("info", &RotatingLogger::info)
         .def("name", &RotatingLogger::name)
-        // Add a regular member function.
         ;
     class_<DailyLogger>("DailyLogger", init<std::string, std::string, bool, int, int>())
         .def("info", &DailyLogger::info)
         .def("name", &DailyLogger::name)
-        // Add a regular member function.
         ;
 
 
