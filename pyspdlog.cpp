@@ -1,3 +1,4 @@
+#define SPDLOG_ENABLE_SYSLOG
 
 #include "spdlog/spdlog.h"
 
@@ -11,6 +12,9 @@
 
 namespace spd = spdlog;
 namespace bp = boost::python;
+
+
+
 
 namespace { // Avoid cluttering the global namespace.
 
@@ -315,6 +319,10 @@ BOOST_PYTHON_MODULE(spdlog)
     bp::class_<DailyLogger, bp::bases<Logger>>("DailyLogger", bp::init<std::string, std::string, bool, int, int>())
         ;
 
+#ifdef SPDLOG_ENABLE_SYSLOG
+    bp::class_<SyslogLogger, bp::bases<Logger>>("SyslogLogger", bp::init<std::string, std::string, int, int>())
+        ;
+#endif
     bp::def("get", get);
     bp::def("drop_all", drop_all);
 }
