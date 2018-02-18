@@ -10,9 +10,51 @@
 #include <vector>
 
 namespace spd = spdlog;
-
+namespace bp = boost::python;
 
 namespace { // Avoid cluttering the global namespace.
+
+class LogLevel
+{
+public:
+    static int trace() { return spd::level::trace; }
+    static int debug() { return spd::level::debug; }
+    static int info() { return spd::level::info; }
+    static int warn() { return spd::level::warn; }
+    static int err() { return spd::level::err; }
+    static int critical() { return spd::level::critical; }
+    static int off() { return spd::level::off; }
+};
+
+
+class Sink
+{
+public:
+    Sink(){}
+    Sink(const spd::sink_ptr& sink) : _sink(sink) {}
+    virtual ~Sink() {}
+    virtual void log(const spd::details::log_msg& msg)
+    {
+        _sink->log(msg);
+    }
+    bool should_log(spd::level::level_enum msg_level) const
+    {
+        return _sink->should_log(msg_level);
+    }
+    void set_level(spd::level::level_enum log_level)
+    {
+        _sink->set_level(log_level);
+    }
+    spd::level::level_enum level() const
+    {
+        return _sink->level();
+    }
+
+    spd::sink_ptr get_sink() const { return _sink; }
+
+protected:
+    spd::sink_ptr _sink{nullptr};
+};
 
 
 class Logger
@@ -32,6 +74,58 @@ public:
     {
         this->_logger->info(msg); 
     }
+
+    bool should_log(spd::level::level_enum level) const
+    {
+        return _logger->should_log(level);
+    }
+
+    void set_level(spd::level::level_enum level)
+    {
+        _logger->set_level(level);
+    }
+
+    spd::level::level_enum level() const
+    {
+        return _logger->level();
+    }
+
+    void set_pattern(const std::string& pattern, spd::pattern_time_type type = spd::pattern_time_type::local)
+    {
+        _logger->set_pattern(pattern, type);
+    }
+
+    // automatically call flush() if message level >= log_level
+    void flush_on(spd::level::level_enum log_level)
+    {
+        _logger->flush_on(log_level);
+    }
+
+    void flush()
+    {
+        _logger->flush();
+    }
+
+    std::vector<Sink> sinks() const
+    {
+        std::vector<Sink> snks;
+        for(const spd::sink_ptr& sink : _logger->sinks())
+        {
+            snks.push_back(Sink(sink));
+        }
+        return snks;
+    }
+
+    void set_error_handler(spd::log_err_handler handler)
+    {
+        _logger->set_error_handler(handler);
+    }
+
+    spd::log_err_handler error_handler()
+    {
+        return _logger->error_handler();
+    }
+
 protected:
     std::shared_ptr<spdlog::logger> _logger{nullptr};
 };
@@ -145,35 +239,6 @@ public:
 #endif
 
 
-class Sink
-{
-public:
-    Sink(){}
-    Sink(const spd::sink_ptr& sink) : _sink(sink) {}
-    virtual ~Sink() {}
-    virtual void log(const spd::details::log_msg& msg)
-    {
-        _sink->log(msg);
-    }
-    bool should_log(spd::level::level_enum msg_level) const
-    {
-        return _sink->should_log(msg_level);
-    }
-    void set_level(spd::level::level_enum log_level)
-    {
-        _sink->set_level(log_level);
-    }
-    spd::level::level_enum level() const
-    {
-        return _sink->level();
-    }
-
-    spd::sink_ptr get_sink() const { return _sink; }
-
-protected:
-    spd::sink_ptr _sink{nullptr};
-};
-
 
 class SinkLogger : public Logger
 {
@@ -207,31 +272,40 @@ void drop_all()
 
 }
 
+
 BOOST_PYTHON_MODULE(spdlog)
 {
-    using namespace boost::python;
-    class_<Logger>("Logger")
+    bp::class_<LogLevel>("LogLevel")
+        .add_static_property("TRACE", &LogLevel::trace)  
+        .add_static_property("DEBUG", &LogLevel::debug)  
+        .add_static_property("INFO", &LogLevel::info)  
+        .add_static_property("WARN", &LogLevel::warn)  
+        .add_static_property("ERR", &LogLevel::err)  
+        .add_static_property("CRITICAL", &LogLevel::critical)  
+        .add_static_property("OFF", &LogLevel::off)  
+        ;
+    bp::class_<Logger>("Logger")
         .def("info", &Logger::info)
         .def("name", &Logger::name)
+        .def("should_log", &Logger::should_log)
+        .def("set_level", &Logger::set_level)
+        .def("level", &Logger::level)
+        .def("set_pattern", &Logger::set_pattern)
+        .def("flush_on", &Logger::flush_on)
+        .def("flush", &Logger::flush)
+        .def("sinks", &Logger::sinks)
+        .def("set_error_handler", &Logger::set_error_handler)
+        .def("error_handler", &Logger::error_handler)
         ;
-    class_<ConsoleLogger>("ConsoleLogger", init<std::string, bool, bool, bool>())
-        .def("info", &ConsoleLogger::info)
-        .def("name", &ConsoleLogger::name)
+    bp::class_<ConsoleLogger, bp::bases<Logger>>("ConsoleLogger", bp::init<std::string, bool, bool, bool>())
         ;
-    class_<FileLogger>("FileLogger", init<std::string, std::string, bool, bool>())
-        .def("info", &FileLogger::info)
-        .def("name", &Logger::name)
+    bp::class_<FileLogger, bp::bases<Logger>>("FileLogger", bp::init<std::string, std::string, bool, bool>())
         ;
-    class_<RotatingLogger>("RotatingLogger", init<std::string, std::string, bool, bool, bool>())
-        .def("info", &RotatingLogger::info)
-        .def("name", &RotatingLogger::name)
+    bp::class_<RotatingLogger, bp::bases<Logger>>("RotatingLogger", bp::init<std::string, std::string, bool, bool, bool>())
         ;
-    class_<DailyLogger>("DailyLogger", init<std::string, std::string, bool, int, int>())
-        .def("info", &DailyLogger::info)
-        .def("name", &DailyLogger::name)
+    bp::class_<DailyLogger, bp::bases<Logger>>("DailyLogger", bp::init<std::string, std::string, bool, int, int>())
         ;
 
-
-    def("get", get);
-    def("drop_all", drop_all);
+    bp::def("get", get);
+    bp::def("drop_all", drop_all);
 }
