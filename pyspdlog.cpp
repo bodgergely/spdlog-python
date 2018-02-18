@@ -70,24 +70,27 @@ public:
         else
             return "NULL";
     }
-    void info(const std::string& msg) const 
+    void log(int level, const std::string& msg) const { this->_logger->log((spd::level::level_enum)level ,msg); }
+    void trace(const std::string& msg) const { this->_logger->trace(msg); }
+    void debug(const std::string& msg) const { this->_logger->debug(msg); }
+    void info(const std::string& msg) const { this->_logger->info(msg); }
+    void warn(const std::string& msg) const { this->_logger->warn(msg); }
+    void error(const std::string& msg) const { this->_logger->error(msg); }
+    void critical(const std::string& msg) const { this->_logger->critical(msg); }
+
+    bool should_log(int level) const
     {
-        this->_logger->info(msg); 
+        return _logger->should_log((spd::level::level_enum)level);
     }
 
-    bool should_log(spd::level::level_enum level) const
+    void set_level(int level)
     {
-        return _logger->should_log(level);
+        _logger->set_level((spd::level::level_enum)level);
     }
 
-    void set_level(spd::level::level_enum level)
+    int level() const
     {
-        _logger->set_level(level);
-    }
-
-    spd::level::level_enum level() const
-    {
-        return _logger->level();
+        return (int)_logger->level();
     }
 
     void set_pattern(const std::string& pattern, spd::pattern_time_type type = spd::pattern_time_type::local)
@@ -96,9 +99,9 @@ public:
     }
 
     // automatically call flush() if message level >= log_level
-    void flush_on(spd::level::level_enum log_level)
+    void flush_on(int log_level)
     {
-        _logger->flush_on(log_level);
+        _logger->flush_on((spd::level::level_enum)log_level);
     }
 
     void flush()
@@ -285,7 +288,13 @@ BOOST_PYTHON_MODULE(spdlog)
         .add_static_property("OFF", &LogLevel::off)  
         ;
     bp::class_<Logger>("Logger")
+        .def("log", &Logger::log)
+        .def("trace", &Logger::trace)
+        .def("debug", &Logger::debug)
         .def("info", &Logger::info)
+        .def("warn", &Logger::warn)
+        .def("error", &Logger::error)
+        .def("critical", &Logger::critical)
         .def("name", &Logger::name)
         .def("should_log", &Logger::should_log)
         .def("set_level", &Logger::set_level)
