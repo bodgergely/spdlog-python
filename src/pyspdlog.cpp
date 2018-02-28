@@ -1,33 +1,30 @@
+#ifndef _WIN32
 #define SPDLOG_ENABLE_SYSLOG
+#endif
+
+#include <pybind11/pybind11.h>
 
 #include "spdlog/spdlog.h"
-
-#include <boost/python/class.hpp>
-#include <boost/python/module.hpp>
-#include <boost/python/def.hpp>
 #include <iostream>
 #include <string>
 #include <memory>
 #include <vector>
 
 namespace spd = spdlog;
-namespace bp = boost::python;
-
-
-
+namespace py = pybind11;
 
 namespace { // Avoid cluttering the global namespace.
 
 class LogLevel
 {
 public:
-    static int trace() { return spd::level::trace; }
-    static int debug() { return spd::level::debug; }
-    static int info() { return spd::level::info; }
-    static int warn() { return spd::level::warn; }
-    static int err() { return spd::level::err; }
-    static int critical() { return spd::level::critical; }
-    static int off() { return spd::level::off; }
+    const static int trace {(int)spd::level::trace};
+    const static int debug { (int)spd::level::debug };
+    const static int info { (int)spd::level::info };
+    const static int warn { (int)spd::level::warn };
+    const static int err { (int)spd::level::err };
+    const static int critical { (int)spd::level::critical };
+    const static int off { (int)spd::level::off };
 };
 
 
@@ -270,6 +267,12 @@ Logger get(const std::string& name)
 }
 
 
+void drop(const std::string& name)
+{
+    spdlog::drop(name);
+}
+
+
 void drop_all()
 {
     spdlog::drop_all();
@@ -279,7 +282,82 @@ void drop_all()
 
 }
 
+PYBIND11_MODULE(spdlog, m) {
+    m.doc() = R"pbdoc(
+        spdlog module
+        -----------------------
 
+        .. currentmodule:: spdlog
+
+        .. autosummary::
+           :toctree: _generate
+
+           LogLevel
+           Logger
+    )pbdoc";
+
+    py::class_<LogLevel>(m, "LogLevel")
+        .def_property_readonly_static("TRACE", [](py::object) {return LogLevel::trace;})
+        .def_property_readonly_static("DEBUG", [](py::object) {return LogLevel::debug;})
+        .def_property_readonly_static("INFO", [](py::object) {return LogLevel::info;})
+        .def_property_readonly_static("WARN", [](py::object) {return LogLevel::warn;})
+        .def_property_readonly_static("ERR", [](py::object) {return LogLevel::err;})
+        .def_property_readonly_static("CRITICAL", [](py::object) {return LogLevel::critical;})
+        .def_property_readonly_static("OFF", [](py::object) {return LogLevel::off;})
+        ;
+
+    py::class_<Logger>(m, "Logger")
+        .def("log", &Logger::log)
+        .def("trace", &Logger::trace)
+        .def("debug", &Logger::debug)
+        .def("info", &Logger::info)
+        .def("warn", &Logger::warn)
+        .def("error", &Logger::error)
+        .def("critical", &Logger::critical)
+        .def("name", &Logger::name)
+        .def("should_log", &Logger::should_log)
+        .def("set_level", &Logger::set_level)
+        .def("level", &Logger::level)
+        .def("set_pattern", &Logger::set_pattern)
+        .def("flush_on", &Logger::flush_on)
+        .def("flush", &Logger::flush)
+        .def("sinks", &Logger::sinks)
+        .def("set_error_handler", &Logger::set_error_handler)
+        .def("error_handler", &Logger::error_handler)
+        ;
+
+
+    py::class_<ConsoleLogger, Logger>(m, "ConsoleLogger")
+        .def(py::init<std::string, bool, bool, bool>());
+
+    py::class_<FileLogger, Logger>(m, "FileLogger") 
+        .def(py::init<std::string, std::string, bool, bool>())
+        ;
+    py::class_<RotatingLogger, Logger>(m, "RotatingLogger")
+        .def(py::init<std::string, std::string, bool, bool, bool>())
+        ;
+    py::class_<DailyLogger, Logger>(m, "DailyLogger")
+        .def(py::init<std::string, std::string, bool, int, int>())
+        ;
+
+#ifdef SPDLOG_ENABLE_SYSLOG
+    py::class_<SyslogLogger, Logger>(m, "SyslogLogger")
+       .def(py::init<std::string, std::string, int, int>())
+       ;
+#endif
+    m.def("get", get);
+    m.def("drop", drop);
+    m.def("drop_all", drop_all);
+
+#ifdef VERSION_INFO
+    m.attr("__version__") = VERSION_INFO;
+#else
+    m.attr("__version__") = "dev";
+#endif
+}
+
+
+/*
 BOOST_PYTHON_MODULE(spdlog)
 {
     bp::class_<LogLevel>("LogLevel")
@@ -326,3 +404,5 @@ BOOST_PYTHON_MODULE(spdlog)
     bp::def("get", get);
     bp::def("drop_all", drop_all);
 }
+
+*/
