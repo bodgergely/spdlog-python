@@ -4,7 +4,7 @@
 
 #include <pybind11/pybind11.h>
 
-#include "spdlog/spdlog.h"
+#include <spdlog/spdlog.h>
 #include <iostream>
 #include <string>
 #include <memory>
@@ -217,7 +217,7 @@ public:
 class DailyLogger : public Logger
 {
 public:
-    DailyLogger(const std::string& logger_name, const std::string& filename, bool multithreaded, int hour=0, int minute=0) 
+    DailyLogger(const std::string& logger_name, const std::string& filename, bool multithreaded=false, int hour=0, int minute=0) 
     {
         if(multithreaded)
         {
@@ -328,25 +328,53 @@ PYBIND11_MODULE(spdlog, m) {
 
 
     py::class_<ConsoleLogger, Logger>(m, "ConsoleLogger")
-        .def(py::init<std::string, bool, bool, bool>());
+        .def(py::init<std::string, bool, bool, bool>(), 
+                py::arg("name"),
+                py::arg("multithreaded") = false, 
+                py::arg("stdout") = true, 
+                py::arg("colored") = true
+            )
+        ;
 
     py::class_<FileLogger, Logger>(m, "FileLogger") 
-        .def(py::init<std::string, std::string, bool, bool>())
+        .def(py::init<std::string, std::string, bool, bool>(),
+                py::arg("name"),
+                py::arg("filename"), 
+                py::arg("multithreaded") = false, 
+                py::arg("truncate") = false
+            )
         ;
     py::class_<RotatingLogger, Logger>(m, "RotatingLogger")
-        .def(py::init<std::string, std::string, bool, bool, bool>())
+        .def(py::init<std::string, std::string, bool, bool, bool>(),
+                py::arg("name"),
+                py::arg("filename"), 
+                py::arg("multithreaded"), 
+                py::arg("max_file_size"),
+                py::arg("max_files")
+            )
         ;
     py::class_<DailyLogger, Logger>(m, "DailyLogger")
-        .def(py::init<std::string, std::string, bool, int, int>())
-        ;
-
+        .def(py::init<std::string, std::string, bool, int, int>(),
+                py::arg("name"),
+                py::arg("filename"), 
+                py::arg("multithreaded") = false, 
+                py::arg("hour") = 0,
+                py::arg("minute") = 0
+            )
+       ;
+//SyslogLogger(const std::string& logger_name, const std::string& ident = "", int syslog_option = 0, int syslog_facilty = (1<<3))
 #ifdef SPDLOG_ENABLE_SYSLOG
     py::class_<SyslogLogger, Logger>(m, "SyslogLogger")
-       .def(py::init<std::string, std::string, int, int>())
+       .def(py::init<std::string, std::string, int, int>(),
+                py::arg("name"),
+                py::arg("ident") = "", 
+                py::arg("syslog_option") = 0, 
+                py::arg("syslog_facility") = (1<<3)
+            )
        ;
 #endif
-    m.def("get", get);
-    m.def("drop", drop);
+    m.def("get", get, py::arg("name"));
+    m.def("drop", drop, py::arg("name"));
     m.def("drop_all", drop_all);
 
 #ifdef VERSION_INFO

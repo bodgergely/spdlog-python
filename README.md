@@ -3,15 +3,14 @@ python wrapper around C++ spdlog (git@github.com:gabime/spdlog.git)
 
 # Introduction
 
-Boost Python wrapper around the C++ spdlog logging library.
+Python wrapper (pybind11) around the C++ spdlog logging library. 
 
 # Installation
 
-Clone or copy git@github.com:gabime/spdlog.git into the source directory. 
+git submodule init -- .
+git submodule update -- .
 
-Edit the Jamroot to point to your boost library.
-
-Run ./bjam to build spdlog.so.
+python setup.py install
 
 # Usage
 ./python
