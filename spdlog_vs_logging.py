@@ -5,7 +5,7 @@ import statistics
 import random
 import numpy as np
 
-speed_logger = spdlog.FileLogger('speedlogger', 'speedlog.log', False, False)
+speed_logger = spdlog.FileLogger(name='speedlogger', filename='speedlog.log', multithreaded=False, truncate=False)
 
 
 
