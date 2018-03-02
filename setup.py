@@ -17,6 +17,16 @@ class get_pybind_include(object):
         return pybind11.get_include(self.user)
 
 
+def include_dir_files(folder):
+    from os import walk
+    files = []
+    for (dirpath, _, filenames) in walk(folder):
+        for fn in filenames:
+            if os.path.splitext(fn)[1] == '.h':
+                files.append(os.path.join(dirpath, fn))
+    return files
+
+
 
 setup(
     name='spdlog',
@@ -29,6 +39,7 @@ setup(
     setup_requires=['pytest-runner'],
     install_requires=['pybind11>=2.2'],
     tests_require=['pytest'],
+    data_files=include_dir_files('spdlog'),
     ext_modules=[
         Extension(
             'spdlog',
