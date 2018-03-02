@@ -22,7 +22,7 @@ def include_dir_files(folder):
     files = []
     for (dirpath, _, filenames) in walk(folder):
         for fn in filenames:
-            if os.path.splitext(fn)[1] == '.h':
+            if os.path.splitext(fn)[1] in {'.h', '.cc', '.cpp', '.hpp'}:
                 files.append(os.path.join(dirpath, fn))
     return files
 
@@ -30,7 +30,7 @@ def include_dir_files(folder):
 
 setup(
     name='spdlog',
-    version='1.0.1',
+    version='1.0.2',
     author='Gergely Bod',
     author_email='bodgergely@hotmail.com',
     description='python wrapper around C++ spdlog logging library',
