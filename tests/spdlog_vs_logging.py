@@ -83,7 +83,7 @@ def lets_do_some_work():
 epochs = 20
 sub_epochs = 10
 message_lengths = [10, 20, 40, 100, 300, 1000]
-repeat_cnt = 6
+repeat_cnt = 5
 
 
 timings = build_timings_per_len(message_lengths)
@@ -109,7 +109,7 @@ def calculate_ratio(timings, logger1, logger2):
 
 
 final = generate_stats(timings)
-print(f"Message len -> Avg time microsec {repeat_cnt}")
+print("Message len -> Avg time microsec")
 print(final)
 
 ratios = calculate_ratio(final, 'spdlog', 'logging')
