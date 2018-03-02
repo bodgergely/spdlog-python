@@ -35,7 +35,7 @@ setup(
     author_email='bodgergely@hotmail.com',
     description='python wrapper around C++ spdlog logging library',
     license='MIT',
-    long_description='',
+    long_description='python wrapper around C++ spdlog (git@github.com:gabime/spdlog.git) logging library.',
     setup_requires=['pytest-runner'],
     install_requires=['pybind11>=2.2'],
     tests_require=['pytest'],
