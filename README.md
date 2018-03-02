@@ -33,6 +33,7 @@ Installation
 Either clone spdlog directly into the top directory or use git submodule update as I show below.
 
 ```
+pip install pybind11
 git submodule update --init --recursive
 python setup.py install
 ```
