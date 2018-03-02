@@ -33,6 +33,9 @@ Installation
 Either clone spdlog directly into the top directory or use git submodule update as I show below.
 
 ```
+git clone git@github.com:bodgergely/pyspdlog.git
+cd pyspdlog 
+
 pip install pybind11
 git submodule update --init --recursive
 python setup.py install
@@ -47,5 +50,10 @@ logger = spd.FileLogger('fast_logger', '/tmp/spdlog_example.log')
 logger.set_level(spd.LogLevel.INFO)
 logger.info('Hello World!')
 logger.debug('I am not so important.')
+```
+
+To run the speed test:
+```
+python ./tests/spdlog_vs_logging.cpp
 ```
 
