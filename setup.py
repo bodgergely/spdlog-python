@@ -30,7 +30,7 @@ def include_dir_files(folder):
 
 setup(
     name='spdlog',
-    version='1.0.0',
+    version='1.0.1',
     author='Gergely Bod',
     author_email='bodgergely@hotmail.com',
     description='python wrapper around C++ spdlog logging library',
