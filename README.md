@@ -30,7 +30,11 @@ On reasonable sized log messages spdlog takes 1/10th of the time it would take t
 Installation
 ============
 
-Either clone spdlog directly into the top directory or use git submodule update as I show below.
+1) `pip install spdlog` will get a distribution from pypi.org
+
+or 
+
+2) from github: 
 
 ```
 git clone git@github.com:bodgergely/pyspdlog.git
