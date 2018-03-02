@@ -20,7 +20,7 @@ class get_pybind_include(object):
 
 setup(
     name='spdlog',
-    version='0.0.1',
+    version='1.0.0',
     author='Gergely Bod',
     author_email='bodgergely@hotmail.com',
     description='python wrapper around C++ spdlog logging library',
