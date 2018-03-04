@@ -52,7 +52,7 @@ def candidate_logger(logger, name, epochs, sub_epochs,repeat_cnt, message_length
             msg = message_generator(msg_len)
             for _ in range(sub_epochs):
                 took = logger(msg, repeat_cnt)
-                timings[name][msg_len].append(took)
+                timings[name][msg_len].append(took / repeat_cnt)
                 worker()
 
 def lets_do_some_work():
@@ -86,7 +86,12 @@ def calculate_ratio(timings, logger1, logger2):
     return { ml : t1[ml]["mean"]/t2[ml]["mean"] for ml in msg_lens }
 
 
-
+def print_stats(timings):
+    for logger in timings.keys():
+        print("Logger: ", logger)
+        for msg_len in timings[logger].keys():
+            t = timings[logger][msg_len]["mean"]
+            print(msg_len, " - ", t)
 
 
 def run_test(async):
@@ -119,8 +124,9 @@ def run_test(async):
 
     final = generate_stats(timings)
     print("Message len -> time microsec")
-    print(final)
+    #print(final)
 
+    print_stats(final)
     ratios = calculate_ratio(final, 'spdlog', 'logging')
 
     for msg_len, ratio in ratios.items():
