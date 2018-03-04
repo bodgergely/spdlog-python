@@ -3,17 +3,68 @@
 #endif
 
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <pybind11/complex.h>
+#include <pybind11/functional.h>
+//#include <pybind11/chrono.h>
 
 #include <spdlog/spdlog.h>
 #include <iostream>
 #include <string>
 #include <memory>
 #include <vector>
+#include <mutex>
+#include <unordered_map>
+#include <stdexcept>
 
 namespace spd = spdlog;
 namespace py = pybind11;
 
 namespace { // Avoid cluttering the global namespace.
+
+class Logger;
+
+bool g_async_mode_on = false;
+std::mutex mutex_async_mode_on;
+
+std::unordered_map<std::string, Logger*> g_loggers;
+std::mutex mutex_loggers;
+
+void register_logger(const std::string& name, Logger* logger)
+{
+    std::lock_guard<std::mutex> lck(mutex_loggers);
+    g_loggers[name] = logger;
+}
+
+Logger* access_logger(const std::string& name)
+{
+    std::lock_guard<std::mutex> lck(mutex_loggers);
+    return g_loggers[name]; 
+}
+
+void remove_logger(const std::string& name)
+{
+    std::lock_guard<std::mutex> lck(mutex_loggers);
+    g_loggers[name] = nullptr;
+    g_loggers.erase(name);
+}
+
+void remove_logger_all()
+{
+    std::lock_guard<std::mutex> lck(mutex_loggers);
+    g_loggers.clear();
+}
+bool is_async_mode_on()
+{
+    std::lock_guard<std::mutex> lck(mutex_async_mode_on);
+    return g_async_mode_on;
+}
+
+void change_async_mode_on(bool val)
+{
+    std::lock_guard<std::mutex> lck(mutex_async_mode_on);
+    g_async_mode_on = val;
+}
 
 class LogLevel
 {
@@ -61,8 +112,11 @@ protected:
 class Logger
 {
 public:
-    Logger() {}
-    Logger(const std::shared_ptr<spd::logger>& logger) : _logger(logger) {}
+    Logger(const std::string& name) : _name(name), _async(is_async_mode_on()) 
+    {
+        register_logger(name, this);
+    }
+    
     virtual ~Logger() {}
     std::string name() const 
     {
@@ -102,12 +156,30 @@ public:
     // automatically call flush() if message level >= log_level
     void flush_on(int log_level)
     {
-        _logger->flush_on((spd::level::level_enum)log_level);
+        if(!_async)
+            _logger->flush_on((spd::level::level_enum)log_level);
+        else
+            throw std::runtime_error("Can only flush explicitely on sync logger!");
     }
 
     void flush()
     {
-        _logger->flush();
+        if(!_async)
+            _logger->flush();
+        else
+            throw std::runtime_error("Can only flush explicitely on sync logger!");
+    }
+
+    bool async()
+    {
+        return _async;
+    }
+
+    void close()
+    {
+        remove_logger(_name);
+        _logger = nullptr;
+        spdlog::drop(_name);
     }
 
     std::vector<Sink> sinks() const
@@ -131,6 +203,8 @@ public:
     }
 
 protected:
+    const std::string               _name;
+    bool                            _async;
     std::shared_ptr<spdlog::logger> _logger{nullptr};
 };
 
@@ -138,7 +212,7 @@ protected:
 class ConsoleLogger : public Logger
 {
 public:
-    ConsoleLogger(const std::string& logger_name, bool multithreaded, bool stdout, bool colored) 
+    ConsoleLogger(const std::string& logger_name, bool multithreaded, bool stdout, bool colored) : Logger(logger_name)
     {
         if(stdout)
         {
@@ -180,12 +254,13 @@ public:
         }
 
     }
+
 };
 
 class FileLogger : public Logger
 {
 public:
-    FileLogger(const std::string& logger_name, const std::string& filename, bool multithreaded, bool truncate = false) 
+    FileLogger(const std::string& logger_name, const std::string& filename, bool multithreaded, bool truncate = false) : Logger(logger_name)
     {
         if(multithreaded)
         {
@@ -201,7 +276,7 @@ public:
 class RotatingLogger : public Logger
 {
 public:
-    RotatingLogger(const std::string& logger_name, const std::string& filename, bool multithreaded, size_t max_file_size, size_t max_files) 
+    RotatingLogger(const std::string& logger_name, const std::string& filename, bool multithreaded, size_t max_file_size, size_t max_files) : Logger(logger_name) 
     {
         if(multithreaded)
         {
@@ -217,7 +292,7 @@ public:
 class DailyLogger : public Logger
 {
 public:
-    DailyLogger(const std::string& logger_name, const std::string& filename, bool multithreaded=false, int hour=0, int minute=0) 
+    DailyLogger(const std::string& logger_name, const std::string& filename, bool multithreaded=false, int hour=0, int minute=0) : Logger(logger_name) 
     {
         if(multithreaded)
         {
@@ -235,7 +310,7 @@ public:
 class SyslogLogger : public Logger
 {
 public:
-    SyslogLogger(const std::string& logger_name, const std::string& ident = "", int syslog_option = 0, int syslog_facilty = (1<<3))
+    SyslogLogger(const std::string& logger_name, const std::string& ident = "", int syslog_option = 0, int syslog_facilty = (1<<3)) : Logger(logger_name)
     {
        _logger = spd::syslog_logger(logger_name, ident, syslog_option, syslog_facilty);
     }
@@ -247,9 +322,11 @@ public:
 class SinkLogger : public Logger
 {
 public:
-    SinkLogger(const std::string& logger_name, const Sink& sink) : Logger(std::shared_ptr<spd::logger>( new spd::logger(logger_name, sink.get_sink())))
-    {}
-    SinkLogger(const std::string& logger_name, const std::vector<Sink>& sink_list) : Logger()
+    SinkLogger(const std::string& logger_name, const Sink& sink) : Logger(logger_name)
+    {
+        _logger = std::shared_ptr<spd::logger>( new spd::logger(logger_name, sink.get_sink()));
+    }
+        SinkLogger(const std::string& logger_name, const std::vector<Sink>& sink_list) : Logger(logger_name)
     {
         std::vector<spd::sink_ptr> sinks;
         for(const Sink& sink : sink_list)
@@ -262,22 +339,49 @@ public:
 
 Logger get(const std::string& name)
 {
-    Logger logger(spd::get(name));
-    return logger;
+    Logger* logger = access_logger(name);
+    if(logger)
+        return *logger;
+    else
+        throw std::runtime_error(std::string("Logger name: " + name + " could name be found"));
 }
 
 
 void drop(const std::string& name)
 {
+    remove_logger(name);
     spdlog::drop(name);
 }
 
 
 void drop_all()
 {
+    remove_logger_all();
     spdlog::drop_all();
 }
 
+class AsyncOverflowPolicy
+{
+public:
+    const static int block_retry {(int)spd::async_overflow_policy::block_retry };
+    const static int discard_log_msg { (int)spd::async_overflow_policy::discard_log_msg };
+};
+
+
+void set_async_mode(size_t queue_size, int policy = 0, const std::function<void()>& worker_warmup_cb = nullptr, size_t flush_interval_ms = 0, const std::function<void()>& worker_teardown_cb = nullptr)
+{
+    if(flush_interval_ms == 0)
+        throw std::runtime_error("Zero is invalid value for flush interval millisec!");
+    spd::set_async_mode(queue_size, (spd::async_overflow_policy)policy, worker_warmup_cb, std::chrono::milliseconds(flush_interval_ms), worker_teardown_cb);
+    change_async_mode_on(true);
+}
+
+// Turn off async mode
+void set_sync_mode()
+{
+    spd::set_sync_mode();
+    change_async_mode_on(false);
+}
 
 
 }
@@ -296,6 +400,17 @@ PYBIND11_MODULE(spdlog, m) {
            Logger
     )pbdoc";
 
+
+    m.def("set_async_mode", set_async_mode, 
+            py::arg("queue_size") = 1 << 16,
+            py::arg("async_overflow_policy") = AsyncOverflowPolicy::block_retry,
+            py::arg("worker_warmup_cb") = nullptr,
+            py::arg("flush_interval_ms") = 10,
+            py::arg("worker_teardown_cb") = nullptr
+         );
+    
+    m.def("set_sync_mode", set_sync_mode);
+
     py::class_<LogLevel>(m, "LogLevel")
         .def_property_readonly_static("TRACE", [](py::object) {return LogLevel::trace;})
         .def_property_readonly_static("DEBUG", [](py::object) {return LogLevel::debug;})
@@ -304,6 +419,11 @@ PYBIND11_MODULE(spdlog, m) {
         .def_property_readonly_static("ERR", [](py::object) {return LogLevel::err;})
         .def_property_readonly_static("CRITICAL", [](py::object) {return LogLevel::critical;})
         .def_property_readonly_static("OFF", [](py::object) {return LogLevel::off;})
+        ;
+
+    py::class_<AsyncOverflowPolicy>(m, "AsyncOverflowPolicy")
+        .def_property_readonly_static("BLOCK_RETRY", [](py::object) {return AsyncOverflowPolicy::block_retry;})
+        .def_property_readonly_static("DISCARD_LOG_MSG", [](py::object) {return AsyncOverflowPolicy::discard_log_msg;})
         ;
 
     py::class_<Logger>(m, "Logger")
@@ -321,6 +441,8 @@ PYBIND11_MODULE(spdlog, m) {
         .def("set_pattern", &Logger::set_pattern)
         .def("flush_on", &Logger::flush_on)
         .def("flush", &Logger::flush)
+        .def("close", &Logger::close)
+        .def("async", &Logger::async)
         .def("sinks", &Logger::sinks)
         .def("set_error_handler", &Logger::set_error_handler)
         .def("error_handler", &Logger::error_handler)

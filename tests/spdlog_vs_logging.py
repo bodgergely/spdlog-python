@@ -4,16 +4,7 @@ import time
 import statistics
 import random
 import numpy as np
-
-speed_logger = spdlog.FileLogger(name='speedlogger', filename='speedlog.log', multithreaded=False, truncate=False)
-
-
-
-logging_logger = logging.getLogger('logging')
-fh = logging.FileHandler('logging.log')
-fh.setLevel(logging.DEBUG)
-logging_logger.addHandler(fh)
-logging_logger.setLevel(logging.DEBUG)
+from functools import partial
 
 MICROSEC_IN_SEC = 1e6
 
@@ -40,16 +31,10 @@ def generate_numpy_array_str(array_len):
 
 
 
-
 @timed
-def do_spdlog(message, count):
+def do_logging(logger, message, count):
     for i in range(count):
-        speed_logger.info(message)
-
-@timed
-def do_logging(message, count):
-    for i in range(count):
-        logging_logger.info(message)
+        logger.info(message)
 
 
 
@@ -61,7 +46,7 @@ def build_timings_per_len(message_lengths):
     return timings
 
 
-def candidate_logger(logger, name, epochs, repeat_cnt, message_generator, worker):
+def candidate_logger(logger, name, epochs, sub_epochs,repeat_cnt, message_lengths, message_generator, worker, timings):
     for epoch in range(epochs):
         for msg_len in message_lengths:
             msg = message_generator(msg_len)
@@ -80,19 +65,6 @@ def lets_do_some_work():
 
 
 
-epochs = 20
-sub_epochs = 10
-message_lengths = [10, 20, 40, 100, 300, 1000]
-repeat_cnt = 5
-
-
-timings = build_timings_per_len(message_lengths)
-
-
-candidate_logger(do_spdlog, 'spdlog', epochs, repeat_cnt, generate_numpy_array_str, lets_do_some_work)
-candidate_logger(do_logging, 'logging', epochs, repeat_cnt, generate_numpy_array_str, lets_do_some_work)
-
-
 def generate_stats(timings):
     d = {"spdlog": {}, "logging" : {}}
     for logger, time_per_msg_len in timings.items():
@@ -108,15 +80,57 @@ def calculate_ratio(timings, logger1, logger2):
 
 
 
-final = generate_stats(timings)
-print("Message len -> Avg time microsec")
-print(final)
 
-ratios = calculate_ratio(final, 'spdlog', 'logging')
 
-for msg_len, ratio in ratios.items():
-    print(f"spdlog takes {ratio * 100}% of logging at message len: {msg_len}")
+def run_test(async):
+    
+    message_lengths = [10, 20, 40, 100, 300, 1000]
+    repeat_cnt = 5
+    epochs = 20
+    sub_epochs = 10
+    if async:
+        spdlog.set_async_mode(queue_size=1 << 20)
+    else: 
+        spdlog.set_sync_mode()
 
+
+    spd_logger = spdlog.FileLogger(name='speedlogger', filename='speedlog.log', multithreaded=False, truncate=False)
+    if spd_logger.async() != async:
+        print(f"spdlog should be in {async} mode but is in {spd_logger.async()}")
+
+    standard_logger = logging.getLogger('logging')
+    fh = logging.FileHandler('logging.log')
+    fh.setLevel(logging.DEBUG)
+    standard_logger.addHandler(fh)
+    standard_logger.setLevel(logging.DEBUG)
+
+    timings = build_timings_per_len(message_lengths)
+
+    candidate_logger(partial(do_logging, spd_logger), 'spdlog', epochs, sub_epochs, repeat_cnt, message_lengths,generate_numpy_array_str, lets_do_some_work, timings)
+    candidate_logger(partial(do_logging, standard_logger), 'logging', epochs,sub_epochs, repeat_cnt, message_lengths, generate_numpy_array_str, lets_do_some_work, timings)
+
+
+    final = generate_stats(timings)
+    print("Message len -> Avg time microsec")
+    print(final)
+
+    ratios = calculate_ratio(final, 'spdlog', 'logging')
+
+    for msg_len, ratio in ratios.items():
+        print(f"spdlog takes {ratio * 100}% of logging at message len: {msg_len}")
+
+    if async:
+        sleeptime = 4
+        print(f"Sleeping for secs: {sleeptime}")
+        time.sleep(sleeptime)
+    spd_logger.close()
+
+
+if __name__ == "__main__":
+    print("Running in spdlog in sync mode")
+    run_test(False)
+    print("Running in spdlog in async mode")
+    run_test(True)
 
 
 
