@@ -1,6 +1,6 @@
 pyspdlog
 ==========
-python wrapper around C++ spdlog (git@github.com:gabime/spdlog.git)
+python wrapper around the fast C++ logger called [spdlog](https://github.com/gabime/spdlog)
 
 Introduction
 ============
