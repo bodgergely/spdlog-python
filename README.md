@@ -16,7 +16,7 @@ Try running [tests/spdlog_vs_logging.py](https://github.com/bodgergely/pyspdlog/
 pyspdlog vs logging (standard lib)
 --------------------------------------------------
 How many microseconds it takes on average to complete a log function (info(), debug() etc) using a FileLogger.
-On reasonable sized log messages spdlog takes 1/10th of the time it would take to complete using the standard logging module.
+On reasonable sized log messages spdlog takes 3% (async mode enabled) and 7% (sync mode) of the time it would take to complete using the standard logging module.
 
 Async mode with 8MB queue with blocking mode.
 
