@@ -20,7 +20,7 @@ On reasonable sized log messages spdlog takes 1/10th of the time it would take t
 
 Async mode with 8MB queue with blocking mode.
 
-| msg len (bytes)   | spdlog **async** (microsec)| spdlog **sync** mode (microsec)| logging (microsec)  |
+| msg len (bytes)   | spdlog **async** (microsec)| spdlog **sync** (microsec)| logging (microsec)  |
 | -------           | :--------:      | :--------:      | :--------:          |
 |  10               |  4.2            |  6.1            |   87.1              |
 |  20               |  4.6            |  5.9            |   86.3              |
