@@ -33,7 +33,7 @@ Async mode with 8MB queue with blocking mode.
 
 Installation
 ============
-0) `pip install pybind11`
+0) `pip install pybind11` - required
 1) `pip install spdlog` will get a distribution from pypi.org
 
 or 
