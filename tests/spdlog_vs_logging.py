@@ -64,19 +64,26 @@ def lets_do_some_work():
         result.append(z)
 
 
+def mode(data):
+    data = sorted(data)
+    return data[len(data)//2]
 
 def generate_stats(timings):
     d = {"spdlog": {}, "logging" : {}}
     for logger, time_per_msg_len in timings.items():
         for msg_len, times in time_per_msg_len.items():
            mean = statistics.mean(times)
-           d[logger][msg_len] = mean
+           mo = mode(times)
+           stddev = statistics.stdev(times)
+           m = max(times)
+           d[logger][msg_len] = {"mean": mean, "mode" : mo, 
+                   "stddev" : stddev, "max" : m}
     return d
 
 def calculate_ratio(timings, logger1, logger2):
     t1,t2 = timings[logger1], timings[logger2]
     msg_lens = t1.keys()
-    return { ml : t1[ml]/t2[ml] for ml in msg_lens }
+    return { ml : t1[ml]["mean"]/t2[ml]["mean"] for ml in msg_lens }
 
 
 
@@ -111,7 +118,7 @@ def run_test(async):
 
 
     final = generate_stats(timings)
-    print("Message len -> Avg time microsec")
+    print("Message len -> time microsec")
     print(final)
 
     ratios = calculate_ratio(final, 'spdlog', 'logging')
