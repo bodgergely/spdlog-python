@@ -84,12 +84,12 @@ def calculate_ratio(timings, logger1, logger2):
 
 def run_test(async):
     
-    message_lengths = [10, 20, 40, 100, 300, 1000]
+    message_lengths = [10, 20, 40, 100, 300, 1000, 5000, 20000]
     repeat_cnt = 5
     epochs = 20
     sub_epochs = 10
     if async:
-        spdlog.set_async_mode(queue_size=1 << 20)
+        spdlog.set_async_mode(queue_size=1 << 24)
     else: 
         spdlog.set_sync_mode()
 
@@ -106,8 +106,8 @@ def run_test(async):
 
     timings = build_timings_per_len(message_lengths)
 
-    candidate_logger(partial(do_logging, spd_logger), 'spdlog', epochs, sub_epochs, repeat_cnt, message_lengths,generate_numpy_array_str, lets_do_some_work, timings)
-    candidate_logger(partial(do_logging, standard_logger), 'logging', epochs,sub_epochs, repeat_cnt, message_lengths, generate_numpy_array_str, lets_do_some_work, timings)
+    candidate_logger(partial(do_logging, spd_logger), 'spdlog', epochs, sub_epochs, repeat_cnt, message_lengths, generate_message, lets_do_some_work, timings)
+    candidate_logger(partial(do_logging, standard_logger), 'logging', epochs,sub_epochs, repeat_cnt, message_lengths, generate_message, lets_do_some_work, timings)
 
 
     final = generate_stats(timings)
