@@ -62,6 +62,6 @@ logger.debug('I am not so important.')
 
 To run the speed test:
 ```
-python ./tests/spdlog_vs_logging.cpp
+python ./tests/spdlog_vs_logging.py
 ```
 
