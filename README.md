@@ -7,7 +7,7 @@ Introduction
 
 Python wrapper (pybind11) around the C++ spdlog logging library. 
 
-Why choose spdlog?
+Why choose [spdlog](https://github.com/gabime/spdlog)?
 
 https://kjellkod.wordpress.com/2015/06/30/the-worlds-fastest-logger-vs-g3log/
 
