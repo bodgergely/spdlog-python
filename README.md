@@ -11,9 +11,9 @@ Why choose [spdlog](https://github.com/gabime/spdlog)?
 
 https://kjellkod.wordpress.com/2015/06/30/the-worlds-fastest-logger-vs-g3log/
 
-Try running [tests/spdlog_vs_logging.py](https://github.com/bodgergely/pyspdlog/blob/master/tests/test_spdlog.py) and see what results you get on your system.
+Try running [tests/spdlog_vs_logging.py](https://github.com/bodgergely/spdlog-python/blob/master/tests/test_spdlog.py) and see what results you get on your system.
 
-pyspdlog vs logging (standard lib)
+spdlog-python vs logging (standard lib)
 --------------------------------------------------
 How many microseconds it takes on average to complete a log function (info(), debug() etc) using a FileLogger.
 On reasonable sized log messages spdlog takes **4% (async mode enabled)** and **6% (sync mode)** of the time it would take to complete using the standard logging module.
@@ -42,7 +42,7 @@ or
 git clone https://github.com/bodgergely/spdlog-python.git
 cd pyspdlog 
 
-pip install pybind11
+pip install spdlog-python
 git submodule update --init --recursive
 python setup.py install
 ```
