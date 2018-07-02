@@ -39,7 +39,7 @@ or
 2) from github: 
 
 ```
-git clone git@github.com:bodgergely/pyspdlog.git
+git clone https://github.com/bodgergely/spdlog-python.git
 cd pyspdlog 
 
 pip install pybind11
