@@ -426,6 +426,11 @@ PYBIND11_MODULE(spdlog, m) {
         .def_property_readonly_static("DISCARD_LOG_MSG", [](py::object) {return AsyncOverflowPolicy::discard_log_msg;})
         ;
 
+    py::enum_<spdlog::pattern_time_type>(m, "PatternTimeType")
+        .value("local", spdlog::pattern_time_type::local)
+        .value("utc", spdlog::pattern_time_type::utc)
+        .export_values();
+
     py::class_<Logger>(m, "Logger")
         .def("log", &Logger::log)
         .def("trace", &Logger::trace)
@@ -438,7 +443,9 @@ PYBIND11_MODULE(spdlog, m) {
         .def("should_log", &Logger::should_log)
         .def("set_level", &Logger::set_level)
         .def("level", &Logger::level)
-        .def("set_pattern", &Logger::set_pattern)
+        .def("set_pattern",
+             &Logger::set_pattern,
+             py::arg("pattern"), py::arg("type") = spd::pattern_time_type::local)
         .def("flush_on", &Logger::flush_on)
         .def("flush", &Logger::flush)
         .def("close", &Logger::close)
