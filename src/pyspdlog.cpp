@@ -108,6 +108,58 @@ protected:
     spd::sink_ptr _sink{nullptr};
 };
 
+// template <class sink_type>
+// class generic_sink : public Sink {
+// public:
+//     generic_sink() {
+//         _sink = std::make_shared<sink_type>();
+//     }
+// };
+
+// class stdout_sink_st : public generic_sink<spdlog::sinks::stdout_sink_st> { };
+// class stdout_sink_mt : public generic_sink<spdlog::sinks::stdout_sink_mt> { };
+
+class stdout_sink_st : public Sink {
+public:
+    stdout_sink_st() {
+        _sink = std::make_shared<spdlog::sinks::stdout_sink_st>();
+    }
+};
+
+class stdout_sink_mt : public Sink {
+public:
+    stdout_sink_mt() {
+        _sink = std::make_shared<spdlog::sinks::stdout_sink_mt>();
+    }
+};
+
+class daily_file_sink_mt : public Sink {
+public:
+    daily_file_sink_mt(std::string base_filename, int rotation_hour, int rotation_minute) {
+        _sink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(base_filename, rotation_hour, rotation_minute);
+    }
+};
+
+class daily_file_sink_st : public Sink {
+public:
+    daily_file_sink_st(const std::string& base_filename, int rotation_hour, int rotation_minute) {
+        _sink = std::make_shared<spdlog::sinks::daily_file_sink_st>(base_filename, rotation_hour, rotation_minute);
+    }
+};
+
+class rotating_file_sink_mt : public Sink {
+public:
+    rotating_file_sink_mt(const std::string &filename, size_t max_file_size, size_t max_files) {
+        _sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(filename, max_file_size, max_files);
+    }
+};
+
+class rotating_file_sink_st : public Sink {
+public:
+    rotating_file_sink_st(const std::string &filename, size_t max_file_size, size_t max_files) {
+        _sink = std::make_shared<spdlog::sinks::rotating_file_sink_st>(filename, max_file_size, max_files);
+    }
+};
 
 class Logger
 {
@@ -329,7 +381,7 @@ public:
         SinkLogger(const std::string& logger_name, const std::vector<Sink>& sink_list) : Logger(logger_name)
     {
         std::vector<spd::sink_ptr> sinks;
-        for(const Sink& sink : sink_list)
+        for(auto sink : sink_list)
             sinks.push_back(sink.get_sink());
         _logger = std::shared_ptr<spd::logger>(
                 new spd::logger(logger_name, sinks.begin(), sinks.end()));
@@ -403,13 +455,36 @@ PYBIND11_MODULE(spdlog, m) {
 
     m.def("set_async_mode", set_async_mode, 
             py::arg("queue_size") = 1 << 16,
-            py::arg("async_overflow_policy") = 0,    // 0 equals AsyncOverflowPolicy::block_retry - using block_retry results in gcc 5.4 compiler error
+            py::arg("async_overflow_policy") = AsyncOverflowPolicy::block_retry,
             py::arg("worker_warmup_cb") = nullptr,
             py::arg("flush_interval_ms") = 10,
             py::arg("worker_teardown_cb") = nullptr
          );
     
     m.def("set_sync_mode", set_sync_mode);
+
+    py::class_<Sink>(m, "Sink")
+        .def(py::init<>())
+        ;
+
+    py::class_<stdout_sink_st, Sink>(m, "stdout_sink_st")
+        .def(py::init<>());
+
+    py::class_<stdout_sink_mt, Sink>(m, "stdout_sink_mt")
+        .def(py::init<>());
+
+
+    py::class_<daily_file_sink_st, Sink>(m, "daily_file_sink_st")
+        .def(py::init<std::string, int, int>());
+
+    py::class_<daily_file_sink_mt, Sink>(m, "daily_file_sink_mt")
+        .def(py::init<std::string, int, int>());
+
+    py::class_<rotating_file_sink_st, Sink>(m, "rotating_file_sink_st")
+        .def(py::init<std::string, int, int>());
+
+    py::class_<rotating_file_sink_mt, Sink>(m, "rotating_file_sink_mt")
+        .def(py::init<std::string, int, int>());
 
     py::class_<LogLevel>(m, "LogLevel")
         .def_property_readonly_static("TRACE", [](py::object) {return LogLevel::trace;})
@@ -426,11 +501,6 @@ PYBIND11_MODULE(spdlog, m) {
         .def_property_readonly_static("DISCARD_LOG_MSG", [](py::object) {return AsyncOverflowPolicy::discard_log_msg;})
         ;
 
-    py::enum_<spdlog::pattern_time_type>(m, "PatternTimeType")
-        .value("local", spdlog::pattern_time_type::local)
-        .value("utc", spdlog::pattern_time_type::utc)
-        .export_values();
-
     py::class_<Logger>(m, "Logger")
         .def("log", &Logger::log)
         .def("trace", &Logger::trace)
@@ -443,9 +513,7 @@ PYBIND11_MODULE(spdlog, m) {
         .def("should_log", &Logger::should_log)
         .def("set_level", &Logger::set_level)
         .def("level", &Logger::level)
-        .def("set_pattern",
-             &Logger::set_pattern,
-             py::arg("pattern"), py::arg("type") = spd::pattern_time_type::local)
+        .def("set_pattern", &Logger::set_pattern)
         .def("flush_on", &Logger::flush_on)
         .def("flush", &Logger::flush)
         .def("close", &Logger::close)
@@ -453,6 +521,10 @@ PYBIND11_MODULE(spdlog, m) {
         .def("sinks", &Logger::sinks)
         .def("set_error_handler", &Logger::set_error_handler)
         .def("error_handler", &Logger::error_handler)
+        ;
+
+    py::class_<SinkLogger, Logger>(m, "SinkLogger")
+        .def(py::init<const std::string&, const std::vector<Sink>&>())
         ;
 
 
@@ -474,7 +546,7 @@ PYBIND11_MODULE(spdlog, m) {
             )
         ;
     py::class_<RotatingLogger, Logger>(m, "RotatingLogger")
-        .def(py::init<std::string, std::string, bool, bool, bool>(),
+        .def(py::init<std::string, std::string, bool, int, int>(),
                 py::arg("name"),
                 py::arg("filename"), 
                 py::arg("multithreaded"), 
@@ -491,6 +563,8 @@ PYBIND11_MODULE(spdlog, m) {
                 py::arg("minute") = 0
             )
        ;
+
+    
 //SyslogLogger(const std::string& logger_name, const std::string& ident = "", int syslog_option = 0, int syslog_facilty = (1<<3))
 #ifdef SPDLOG_ENABLE_SYSLOG
     py::class_<SyslogLogger, Logger>(m, "SyslogLogger")
