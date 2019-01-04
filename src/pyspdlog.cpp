@@ -133,6 +133,20 @@ public:
     }
 };
 
+class stderr_sink_st : public Sink {
+public:
+    stderr_sink_st() {
+        _sink = std::make_shared<spdlog::sinks::stderr_sink_st>();
+    }
+};
+
+class stderr_sink_mt : public Sink {
+public:
+    stderr_sink_mt() {
+        _sink = std::make_shared<spdlog::sinks::stderr_sink_mt>();
+    }
+};
+
 class daily_file_sink_mt : public Sink {
 public:
     daily_file_sink_mt(std::string base_filename, int rotation_hour, int rotation_minute) {
@@ -471,6 +485,12 @@ PYBIND11_MODULE(spdlog, m) {
         .def(py::init<>());
 
     py::class_<stdout_sink_mt, Sink>(m, "stdout_sink_mt")
+        .def(py::init<>());
+
+    py::class_<stderr_sink_st, Sink>(m, "stderr_sink_st")
+        .def(py::init<>());
+
+    py::class_<stderr_sink_mt, Sink>(m, "stderr_sink_mt")
         .def(py::init<>());
 
 
