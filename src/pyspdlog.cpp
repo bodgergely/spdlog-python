@@ -8,6 +8,8 @@
 #include <pybind11/functional.h>
 //#include <pybind11/chrono.h>
 
+using namespace pybind11::literals;
+
 #include <spdlog/spdlog.h>
 //#include <spdlog/sinks/stdout_sinks.h>
 #ifdef WIN32
@@ -21,7 +23,6 @@
 #include <spdlog/sinks/null_sink.h>
 //#include <spdlog/sinks/syslog_sink.h>
 //#include <spdlog/async_logger.h>
-
 
 #include <iostream>
 #include <string>
@@ -119,17 +120,17 @@ public:
     {
         _sink->log(msg);
     }
-    bool should_log(spd::level::level_enum msg_level) const
+    bool should_log(int msg_level) const
     {
-        return _sink->should_log(msg_level);
+        return _sink->should_log((spd::level::level_enum)msg_level);
     }
-    void set_level(spd::level::level_enum log_level)
+    void set_level(int log_level)
     {
-        _sink->set_level(log_level);
+        _sink->set_level((spd::level::level_enum)log_level);
     }
-    spd::level::level_enum level() const
+    int level() const
     {
-        return _sink->level();
+        return (int)_sink->level();
     }
 
     spd::sink_ptr get_sink() const { return _sink; }
@@ -162,7 +163,6 @@ public:
         _sink = std::make_shared<spdlog::sinks::stdout_sink_mt>();
     }
 };
-
 
 class stdout_color_sink_st : public Sink {
 public:
@@ -322,7 +322,7 @@ public:
         if(!_async)
             _logger->flush_on((spd::level::level_enum)log_level);
         else
-            throw std::runtime_error("Can only flush explicitely on sync logger!");
+            throw std::runtime_error("Can only flush explicitly on sync logger!");
     }
 
     void flush()
@@ -330,7 +330,7 @@ public:
         if(!_async)
             _logger->flush();
         else
-            throw std::runtime_error("Can only flush explicitely on sync logger!");
+            throw std::runtime_error("Can only flush explicitly on sync logger!");
     }
 
     bool async()
@@ -604,22 +604,30 @@ PYBIND11_MODULE(spdlog, m) {
         .def(py::init<>());
 
     py::class_<simple_file_sink_st, Sink>(m, "simple_file_sink_st")
-        .def(py::init<std::string, bool>());
+        .def(py::init<std::string, bool>(),py::arg("filename"),py::arg("truncate")=false);
 
     py::class_<simple_file_sink_mt, Sink>(m, "simple_file_sink_mt")
-        .def(py::init<std::string, bool>());
+        .def(py::init<std::string, bool>(),py::arg("filename"),py::arg("truncate")=false);
 
     py::class_<daily_file_sink_st, Sink>(m, "daily_file_sink_st")
-        .def(py::init<std::string, int, int>());
+        .def(py::init<std::string, int, int>(),py::arg("filename"),
+        									   py::arg("rotation_hour"),
+											   py::arg("rotation_minute"));
 
     py::class_<daily_file_sink_mt, Sink>(m, "daily_file_sink_mt")
-        .def(py::init<std::string, int, int>());
+        .def(py::init<std::string, int, int>(),py::arg("filename"),
+				   	   	   	   	   	   	       py::arg("rotation_hour"),
+											   py::arg("rotation_minute"));
 
     py::class_<rotating_file_sink_st, Sink>(m, "rotating_file_sink_st")
-        .def(py::init<std::string, int, int>());
+        .def(py::init<std::string, int, int>(),py::arg("filename"),
+  	   	   	   	       	   	   	   	   	       py::arg("max_size"),
+											   py::arg("max_files"));
 
     py::class_<rotating_file_sink_mt, Sink>(m, "rotating_file_sink_mt")
-        .def(py::init<std::string, int, int>());
+        .def(py::init<std::string, int, int>(),py::arg("filename"),
+   	   	   	   	   	       	   	   	   	       py::arg("max_size"),
+											   py::arg("max_files"));
 
     py::class_<null_sink_st, Sink>(m, "null_sink_st")
         .def(py::init<>());
@@ -714,6 +722,13 @@ PYBIND11_MODULE(spdlog, m) {
     
 //SyslogLogger(const std::string& logger_name, const std::string& ident = "", int syslog_option = 0, int syslog_facilty = (1<<3))
 #ifdef SPDLOG_ENABLE_SYSLOG
+    py::class_<syslog_sink, Sink>(m, "syslog_sink")
+       .def(py::init<std::string, int, int>(),
+                py::arg("ident") = "",
+                py::arg("syslog_option") = 0,
+                py::arg("syslog_facility") = (1<<3)
+            )
+       ;
     py::class_<SyslogLogger, Logger>(m, "SyslogLogger")
        .def(py::init<std::string, std::string, int, int>(),
                 py::arg("name"),
