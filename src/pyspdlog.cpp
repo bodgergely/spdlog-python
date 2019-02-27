@@ -8,7 +8,22 @@
 #include <pybind11/functional.h>
 //#include <pybind11/chrono.h>
 
+using namespace pybind11::literals;
+
 #include <spdlog/spdlog.h>
+//#include <spdlog/sinks/stdout_sinks.h>
+#ifdef WIN32
+#include <spdlog/sinks/wincolor_sink.h>
+#else
+#include <spdlog/sinks/ansicolor_sink.h>
+#endif
+////#include <spdlog/sinks/simple_file_sink.h>
+////#include <spdlog/sinks/daily_file_sink.h>
+//#include <spdlog/sinks/rotating_file_sink.h>
+#include <spdlog/sinks/null_sink.h>
+//#include <spdlog/sinks/syslog_sink.h>
+//#include <spdlog/async_logger.h>
+
 #include <iostream>
 #include <string>
 #include <memory>
@@ -19,6 +34,22 @@
 
 namespace spd = spdlog;
 namespace py = pybind11;
+
+namespace spdlog {
+	namespace sinks {
+#ifdef WIN32
+		using stdout_color_sink_st = wincolor_stdout_sink_st;
+		using stdout_color_sink_mt = wincolor_stdout_sink_mt;
+		using stderr_color_sink_st = wincolor_stderr_sink_st;
+		using stderr_color_sink_mt = wincolor_stderr_sink_mt;
+#else
+		using stdout_color_sink_st = ansicolor_stdout_sink_st;
+		using stdout_color_sink_mt = ansicolor_stdout_sink_mt;
+		using stderr_color_sink_st = ansicolor_stderr_sink_st;
+		using stderr_color_sink_mt = ansicolor_stderr_sink_mt;
+#endif
+	}
+}
 
 namespace { // Avoid cluttering the global namespace.
 
@@ -89,17 +120,17 @@ public:
     {
         _sink->log(msg);
     }
-    bool should_log(spd::level::level_enum msg_level) const
+    bool should_log(int msg_level) const
     {
-        return _sink->should_log(msg_level);
+        return _sink->should_log((spd::level::level_enum)msg_level);
     }
-    void set_level(spd::level::level_enum log_level)
+    void set_level(int log_level)
     {
-        _sink->set_level(log_level);
+        _sink->set_level((spd::level::level_enum)log_level);
     }
-    spd::level::level_enum level() const
+    int level() const
     {
-        return _sink->level();
+        return (int)_sink->level();
     }
 
     spd::sink_ptr get_sink() const { return _sink; }
@@ -107,6 +138,138 @@ public:
 protected:
     spd::sink_ptr _sink{nullptr};
 };
+
+// template <class sink_type>
+// class generic_sink : public Sink {
+// public:
+//     generic_sink() {
+//         _sink = std::make_shared<sink_type>();
+//     }
+// };
+
+// class stdout_sink_st : public generic_sink<spdlog::sinks::stdout_sink_st> { };
+// class stdout_sink_mt : public generic_sink<spdlog::sinks::stdout_sink_mt> { };
+
+class stdout_sink_st : public Sink {
+public:
+    stdout_sink_st() {
+        _sink = std::make_shared<spdlog::sinks::stdout_sink_st>();
+    }
+};
+
+class stdout_sink_mt : public Sink {
+public:
+    stdout_sink_mt() {
+        _sink = std::make_shared<spdlog::sinks::stdout_sink_mt>();
+    }
+};
+
+class stdout_color_sink_st : public Sink {
+public:
+    stdout_color_sink_st() {
+        _sink = std::make_shared<spdlog::sinks::stdout_color_sink_st>();
+    }
+};
+
+class stdout_color_sink_mt : public Sink {
+public:
+    stdout_color_sink_mt() {
+        _sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    }
+};
+
+class stderr_sink_st : public Sink {
+public:
+    stderr_sink_st() {
+        _sink = std::make_shared<spdlog::sinks::stderr_sink_st>();
+    }
+};
+
+class stderr_sink_mt : public Sink {
+public:
+    stderr_sink_mt() {
+        _sink = std::make_shared<spdlog::sinks::stderr_sink_mt>();
+    }
+};
+
+class stderr_color_sink_st : public Sink {
+public:
+    stderr_color_sink_st() {
+        _sink = std::make_shared<spdlog::sinks::stderr_color_sink_st>();
+    }
+};
+
+class stderr_color_sink_mt : public Sink {
+public:
+    stderr_color_sink_mt() {
+        _sink = std::make_shared<spdlog::sinks::stderr_color_sink_mt>();
+    }
+};
+
+class simple_file_sink_st : public Sink {
+public:
+    simple_file_sink_st(const std::string& base_filename, bool truncate) {
+        _sink = std::make_shared<spdlog::sinks::simple_file_sink_st>(base_filename, truncate);
+    }
+};
+
+class simple_file_sink_mt : public Sink {
+public:
+    simple_file_sink_mt(const std::string& base_filename, bool truncate) {
+        _sink = std::make_shared<spdlog::sinks::simple_file_sink_mt>(base_filename, truncate);
+    }
+};
+
+class daily_file_sink_mt : public Sink {
+public:
+    daily_file_sink_mt(const std::string& base_filename, int rotation_hour, int rotation_minute) {
+        _sink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(base_filename, rotation_hour, rotation_minute);
+    }
+};
+
+class daily_file_sink_st : public Sink {
+public:
+    daily_file_sink_st(const std::string& base_filename, int rotation_hour, int rotation_minute) {
+        _sink = std::make_shared<spdlog::sinks::daily_file_sink_st>(base_filename, rotation_hour, rotation_minute);
+    }
+};
+
+class rotating_file_sink_mt : public Sink {
+public:
+    rotating_file_sink_mt(const std::string &filename, size_t max_file_size, size_t max_files) {
+        _sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(filename, max_file_size, max_files);
+    }
+};
+
+class rotating_file_sink_st : public Sink {
+public:
+    rotating_file_sink_st(const std::string &filename, size_t max_file_size, size_t max_files) {
+        _sink = std::make_shared<spdlog::sinks::rotating_file_sink_st>(filename, max_file_size, max_files);
+    }
+};
+
+class null_sink_st : public Sink {
+		public:
+		    null_sink_st() {
+		        _sink = std::make_shared<spdlog::sinks::null_sink_st>();
+		    }
+};
+
+class null_sink_mt :public Sink {
+		public:
+		    null_sink_mt() {
+		        _sink = std::make_shared<spdlog::sinks::null_sink_mt>();
+		    }
+};
+
+#ifdef SPDLOG_ENABLE_SYSLOG
+class syslog_sink : public Sink {
+	public:
+    	syslog_sink(const std::string& ident = "", int syslog_option = 0, int syslog_facility = (1<<3)) {
+    		_sink = std::make_shared<spdlog::sinks::syslog_sink>(ident,syslog_option,syslog_facility);
+    }
+};
+#endif
 
 
 class Logger
@@ -159,7 +322,7 @@ public:
         if(!_async)
             _logger->flush_on((spd::level::level_enum)log_level);
         else
-            throw std::runtime_error("Can only flush explicitely on sync logger!");
+            throw std::runtime_error("Can only flush explicitly on sync logger!");
     }
 
     void flush()
@@ -167,7 +330,7 @@ public:
         if(!_async)
             _logger->flush();
         else
-            throw std::runtime_error("Can only flush explicitely on sync logger!");
+            throw std::runtime_error("Can only flush explicitly on sync logger!");
     }
 
     bool async()
@@ -329,7 +492,7 @@ public:
         SinkLogger(const std::string& logger_name, const std::vector<Sink>& sink_list) : Logger(logger_name)
     {
         std::vector<spd::sink_ptr> sinks;
-        for(const Sink& sink : sink_list)
+        for(auto sink : sink_list)
             sinks.push_back(sink.get_sink());
         _logger = std::shared_ptr<spd::logger>(
                 new spd::logger(logger_name, sinks.begin(), sinks.end()));
@@ -343,7 +506,7 @@ Logger get(const std::string& name)
     if(logger)
         return *logger;
     else
-        throw std::runtime_error(std::string("Logger name: " + name + " could name be found"));
+        throw std::runtime_error(std::string("Logger name: " + name + " could not be found"));
 }
 
 
@@ -403,13 +566,74 @@ PYBIND11_MODULE(spdlog, m) {
 
     m.def("set_async_mode", set_async_mode, 
             py::arg("queue_size") = 1 << 16,
-            py::arg("async_overflow_policy") = 0,    // 0 equals AsyncOverflowPolicy::block_retry - using block_retry results in gcc 5.4 compiler error
+            py::arg("async_overflow_policy") = AsyncOverflowPolicy::block_retry,
             py::arg("worker_warmup_cb") = nullptr,
             py::arg("flush_interval_ms") = 10,
             py::arg("worker_teardown_cb") = nullptr
          );
     
     m.def("set_sync_mode", set_sync_mode);
+
+    py::class_<Sink>(m, "Sink")
+        .def(py::init<>())
+		.def("set_level", &Sink::set_level)
+        ;
+
+    py::class_<stdout_sink_st, Sink>(m, "stdout_sink_st")
+        .def(py::init<>());
+
+    py::class_<stdout_sink_mt, Sink>(m, "stdout_sink_mt")
+        .def(py::init<>());
+
+    py::class_<stdout_color_sink_st, Sink>(m, "stdout_color_sink_st")
+        .def(py::init<>());
+
+    py::class_<stdout_color_sink_mt, Sink>(m, "stdout_color_sink_mt")
+        .def(py::init<>());
+
+    py::class_<stderr_sink_st, Sink>(m, "stderr_sink_st")
+        .def(py::init<>());
+
+    py::class_<stderr_sink_mt, Sink>(m, "stderr_sink_mt")
+        .def(py::init<>());
+
+    py::class_<stderr_color_sink_st, Sink>(m, "stderr_color_sink_st")
+        .def(py::init<>());
+
+    py::class_<stderr_color_sink_mt, Sink>(m, "stderr_color_sink_mt")
+        .def(py::init<>());
+
+    py::class_<simple_file_sink_st, Sink>(m, "simple_file_sink_st")
+        .def(py::init<std::string, bool>(),py::arg("filename"),py::arg("truncate")=false);
+
+    py::class_<simple_file_sink_mt, Sink>(m, "simple_file_sink_mt")
+        .def(py::init<std::string, bool>(),py::arg("filename"),py::arg("truncate")=false);
+
+    py::class_<daily_file_sink_st, Sink>(m, "daily_file_sink_st")
+        .def(py::init<std::string, int, int>(),py::arg("filename"),
+        									   py::arg("rotation_hour"),
+											   py::arg("rotation_minute"));
+
+    py::class_<daily_file_sink_mt, Sink>(m, "daily_file_sink_mt")
+        .def(py::init<std::string, int, int>(),py::arg("filename"),
+				   	   	   	   	   	   	       py::arg("rotation_hour"),
+											   py::arg("rotation_minute"));
+
+    py::class_<rotating_file_sink_st, Sink>(m, "rotating_file_sink_st")
+        .def(py::init<std::string, int, int>(),py::arg("filename"),
+  	   	   	   	       	   	   	   	   	       py::arg("max_size"),
+											   py::arg("max_files"));
+
+    py::class_<rotating_file_sink_mt, Sink>(m, "rotating_file_sink_mt")
+        .def(py::init<std::string, int, int>(),py::arg("filename"),
+   	   	   	   	   	       	   	   	   	       py::arg("max_size"),
+											   py::arg("max_files"));
+
+    py::class_<null_sink_st, Sink>(m, "null_sink_st")
+        .def(py::init<>());
+
+    py::class_<null_sink_mt, Sink>(m, "null_sink_mt")
+        .def(py::init<>());
 
     py::class_<LogLevel>(m, "LogLevel")
         .def_property_readonly_static("TRACE", [](py::object) {return LogLevel::trace;})
@@ -422,7 +646,7 @@ PYBIND11_MODULE(spdlog, m) {
         ;
 
     py::class_<AsyncOverflowPolicy>(m, "AsyncOverflowPolicy")
-        .def_property_readonly_static("BLOCK_RETRY", [](py::object) {return AsyncOverflowPolicy::block_retry;})
+        .def_property_readonly_static("BLOCK", [](py::object) {return AsyncOverflowPolicy::block_retry;})
         .def_property_readonly_static("DISCARD_LOG_MSG", [](py::object) {return AsyncOverflowPolicy::discard_log_msg;})
         ;
 
@@ -443,9 +667,8 @@ PYBIND11_MODULE(spdlog, m) {
         .def("should_log", &Logger::should_log)
         .def("set_level", &Logger::set_level)
         .def("level", &Logger::level)
-        .def("set_pattern",
-             &Logger::set_pattern,
-             py::arg("pattern"), py::arg("type") = spd::pattern_time_type::local)
+        .def("set_pattern", &Logger::set_pattern,
+                	py::arg("pattern"), py::arg("type") = spd::pattern_time_type::local)
         .def("flush_on", &Logger::flush_on)
         .def("flush", &Logger::flush)
         .def("close", &Logger::close)
@@ -453,6 +676,10 @@ PYBIND11_MODULE(spdlog, m) {
         .def("sinks", &Logger::sinks)
         .def("set_error_handler", &Logger::set_error_handler)
         .def("error_handler", &Logger::error_handler)
+        ;
+
+    py::class_<SinkLogger, Logger>(m, "SinkLogger")
+        .def(py::init<const std::string&, const std::vector<Sink>&>())
         ;
 
 
@@ -474,7 +701,7 @@ PYBIND11_MODULE(spdlog, m) {
             )
         ;
     py::class_<RotatingLogger, Logger>(m, "RotatingLogger")
-        .def(py::init<std::string, std::string, bool, bool, bool>(),
+        .def(py::init<std::string, std::string, bool, int, int>(),
                 py::arg("name"),
                 py::arg("filename"), 
                 py::arg("multithreaded"), 
@@ -491,8 +718,17 @@ PYBIND11_MODULE(spdlog, m) {
                 py::arg("minute") = 0
             )
        ;
+
+    
 //SyslogLogger(const std::string& logger_name, const std::string& ident = "", int syslog_option = 0, int syslog_facilty = (1<<3))
 #ifdef SPDLOG_ENABLE_SYSLOG
+    py::class_<syslog_sink, Sink>(m, "syslog_sink")
+       .def(py::init<std::string, int, int>(),
+                py::arg("ident") = "",
+                py::arg("syslog_option") = 0,
+                py::arg("syslog_facility") = (1<<3)
+            )
+       ;
     py::class_<SyslogLogger, Logger>(m, "SyslogLogger")
        .def(py::init<std::string, std::string, int, int>(),
                 py::arg("name"),
@@ -502,7 +738,7 @@ PYBIND11_MODULE(spdlog, m) {
             )
        ;
 #endif
-    m.def("get", get, py::arg("name"));
+    m.def("get", get, py::arg("name"),py::return_value_policy::copy);
     m.def("drop", drop, py::arg("name"));
     m.def("drop_all", drop_all);
 
