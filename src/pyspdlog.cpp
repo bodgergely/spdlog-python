@@ -2,35 +2,38 @@
 #define SPDLOG_ENABLE_SYSLOG
 #endif
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-#include <pybind11/complex.h>
-#include <pybind11/functional.h>
-//#include <pybind11/chrono.h>
-
-using namespace pybind11::literals;
-
 #include <spdlog/spdlog.h>
-//#include <spdlog/sinks/stdout_sinks.h>
+#include <spdlog/async_logger.h>
+#include <spdlog/sinks/base_sink.h>
+#include <spdlog/sinks/basic_file_sink.h>
+#include <spdlog/sinks/daily_file_sink.h>
+#include <spdlog/sinks/null_sink.h>
+#include <spdlog/sinks/rotating_file_sink.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/sinks/stdout_sinks.h>
+#include <spdlog/sinks/syslog_sink.h>
+
 #ifdef WIN32
 #include <spdlog/sinks/wincolor_sink.h>
 #else
 #include <spdlog/sinks/ansicolor_sink.h>
 #endif
-////#include <spdlog/sinks/simple_file_sink.h>
-////#include <spdlog/sinks/daily_file_sink.h>
-//#include <spdlog/sinks/rotating_file_sink.h>
-#include <spdlog/sinks/null_sink.h>
-//#include <spdlog/sinks/syslog_sink.h>
-//#include <spdlog/async_logger.h>
+
+#include <pybind11/complex.h>
+#include <pybind11/functional.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+//#include <pybind11/chrono.h>
+
+using namespace pybind11::literals;
 
 #include <iostream>
-#include <string>
 #include <memory>
-#include <vector>
 #include <mutex>
-#include <unordered_map>
 #include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace spd = spdlog;
 namespace py = pybind11;
@@ -55,63 +58,42 @@ namespace { // Avoid cluttering the global namespace.
 
 class Logger;
 
-bool g_async_mode_on = false;
-std::mutex mutex_async_mode_on;
-
-std::unordered_map<std::string, Logger*> g_loggers;
+std::unordered_map<std::string, Logger *> g_loggers;
 std::mutex mutex_loggers;
 
-void register_logger(const std::string& name, Logger* logger)
-{
-    std::lock_guard<std::mutex> lck(mutex_loggers);
-    g_loggers[name] = logger;
+void register_logger(const std::string &name, Logger *logger) {
+  std::lock_guard<std::mutex> lck(mutex_loggers);
+  g_loggers[name] = logger;
 }
 
-Logger* access_logger(const std::string& name)
-{
-    std::lock_guard<std::mutex> lck(mutex_loggers);
-    return g_loggers[name]; 
+Logger *access_logger(const std::string &name) {
+  std::lock_guard<std::mutex> lck(mutex_loggers);
+  return g_loggers[name];
 }
 
-void remove_logger(const std::string& name)
-{
-    std::lock_guard<std::mutex> lck(mutex_loggers);
-    g_loggers[name] = nullptr;
-    g_loggers.erase(name);
+void remove_logger(const std::string &name) {
+  std::lock_guard<std::mutex> lck(mutex_loggers);
+  g_loggers[name] = nullptr;
+  g_loggers.erase(name);
 }
 
-void remove_logger_all()
-{
-    std::lock_guard<std::mutex> lck(mutex_loggers);
-    g_loggers.clear();
-}
-bool is_async_mode_on()
-{
-    std::lock_guard<std::mutex> lck(mutex_async_mode_on);
-    return g_async_mode_on;
+void remove_logger_all() {
+  std::lock_guard<std::mutex> lck(mutex_loggers);
+  g_loggers.clear();
 }
 
-void change_async_mode_on(bool val)
-{
-    std::lock_guard<std::mutex> lck(mutex_async_mode_on);
-    g_async_mode_on = val;
-}
-
-class LogLevel
-{
+class LogLevel {
 public:
-    const static int trace {(int)spd::level::trace};
-    const static int debug { (int)spd::level::debug };
-    const static int info { (int)spd::level::info };
-    const static int warn { (int)spd::level::warn };
-    const static int err { (int)spd::level::err };
-    const static int critical { (int)spd::level::critical };
-    const static int off { (int)spd::level::off };
+  const static int trace{(int)spd::level::trace};
+  const static int debug{(int)spd::level::debug};
+  const static int info{(int)spd::level::info};
+  const static int warn{(int)spd::level::warn};
+  const static int err{(int)spd::level::err};
+  const static int critical{(int)spd::level::critical};
+  const static int off{(int)spd::level::off};
 };
 
-
-class Sink
-{
+class Sink {
 public:
     Sink(){}
     Sink(const spd::sink_ptr& sink) : _sink(sink) {}
@@ -136,7 +118,7 @@ public:
     spd::sink_ptr get_sink() const { return _sink; }
 
 protected:
-    spd::sink_ptr _sink{nullptr};
+  spd::sink_ptr _sink{nullptr};
 };
 
 // template <class sink_type>
@@ -206,17 +188,17 @@ public:
     }
 };
 
-class simple_file_sink_st : public Sink {
+class basic_file_sink_st : public Sink {
 public:
-    simple_file_sink_st(const std::string& base_filename, bool truncate) {
-        _sink = std::make_shared<spdlog::sinks::simple_file_sink_st>(base_filename, truncate);
+    basic_file_sink_st(const std::string& base_filename, bool truncate) {
+        _sink = std::make_shared<spdlog::sinks::basic_file_sink_st>(base_filename, truncate);
     }
 };
 
-class simple_file_sink_mt : public Sink {
+class basic_file_sink_mt : public Sink {
 public:
-    simple_file_sink_mt(const std::string& base_filename, bool truncate) {
-        _sink = std::make_shared<spdlog::sinks::simple_file_sink_mt>(base_filename, truncate);
+    basic_file_sink_mt(const std::string& base_filename, bool truncate) {
+        _sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(base_filename, truncate);
     }
 };
 
@@ -265,9 +247,13 @@ class null_sink_mt :public Sink {
 #ifdef SPDLOG_ENABLE_SYSLOG
 class syslog_sink : public Sink {
 	public:
-    	syslog_sink(const std::string& ident = "", int syslog_option = 0, int syslog_facility = (1<<3)) {
-    		_sink = std::make_shared<spdlog::sinks::syslog_sink>(ident,syslog_option,syslog_facility);
+  syslog_sink(const std::string& ident = "", int syslog_option = 0, int syslog_facility = (1<<3), bool multithreaded = false ) {
+    if(multithreaded){
+      _sink = std::make_shared<spdlog::sinks::syslog_sink_mt>(ident,syslog_option,syslog_facility);
+    } else {
+      _sink = std::make_shared<spdlog::sinks::syslog_sink_st>(ident,syslog_option,syslog_facility);
     }
+  }
 };
 #endif
 
@@ -275,16 +261,16 @@ class syslog_sink : public Sink {
 class Logger
 {
 public:
-    Logger(const std::string& name) : _name(name), _async(is_async_mode_on()) 
+    Logger(const std::string& name) : _name(name)
     {
         register_logger(name, this);
     }
-    
+
     virtual ~Logger() {}
-    std::string name() const 
+    std::string name() const
     {
-        if(_logger) 
-            return _logger->name(); 
+        if(_logger)
+            return _logger->name();
         else
             return "NULL";
     }
@@ -319,23 +305,12 @@ public:
     // automatically call flush() if message level >= log_level
     void flush_on(int log_level)
     {
-        if(!_async)
-            _logger->flush_on((spd::level::level_enum)log_level);
-        else
-            throw std::runtime_error("Can only flush explicitly on sync logger!");
+      _logger->flush_on((spd::level::level_enum)log_level);
     }
 
     void flush()
     {
-        if(!_async)
-            _logger->flush();
-        else
-            throw std::runtime_error("Can only flush explicitly on sync logger!");
-    }
-
-    bool async()
-    {
-        return _async;
+      _logger->flush();
     }
 
     void close()
@@ -355,135 +330,108 @@ public:
         return snks;
     }
 
-    void set_error_handler(spd::log_err_handler handler)
-    {
-        _logger->set_error_handler(handler);
-    }
+  void set_error_handler(spd::log_err_handler handler) {
+    _logger->set_error_handler(handler);
+  }
 
-    spd::log_err_handler error_handler()
-    {
-        return _logger->error_handler();
-    }
+  spd::log_err_handler error_handler() { return _logger->error_handler(); }
 
 protected:
-    const std::string               _name;
-    bool                            _async;
-    std::shared_ptr<spdlog::logger> _logger{nullptr};
+  const std::string _name;
+  std::shared_ptr<spdlog::logger> _logger{nullptr};
 };
 
-
-class ConsoleLogger : public Logger
-{
+class ConsoleLogger : public Logger {
 public:
-    ConsoleLogger(const std::string& logger_name, bool multithreaded, bool stdout, bool colored) : Logger(logger_name)
-    {
-        if(stdout)
-        {
-            if(multithreaded)
-            {
-                if(colored)
-                    _logger = spd::stdout_color_mt(logger_name);
-                else
-                    _logger = spd::stdout_logger_mt(logger_name);
-            }
-            else
-            {
-                if(colored)
-                    _logger = spd::stdout_color_st(logger_name);
-                else
-                    _logger = spd::stdout_logger_st(logger_name);
-
-            }
-
-        }
+  ConsoleLogger(const std::string &logger_name, bool multithreaded, bool stdout,
+                bool colored)
+      : Logger(logger_name) {
+    if (stdout) {
+      if (multithreaded) {
+        if (colored)
+          _logger = spd::stdout_color_mt(logger_name);
         else
-        {
-            if(multithreaded)
-            {
-                if(colored)
-                    _logger = spd::stderr_color_mt(logger_name);
-                else
-                    _logger = spd::stderr_logger_mt(logger_name);
-            }
-            else
-            {
-                if(colored)
-                    _logger = spd::stderr_color_st(logger_name);
-                else
-                    _logger = spd::stderr_logger_st(logger_name);
+          _logger = spd::stdout_logger_mt(logger_name);
+      } else {
+        if (colored)
+          _logger = spd::stdout_color_st(logger_name);
+        else
+          _logger = spd::stdout_logger_st(logger_name);
+      }
 
-            }
-
-        }
-
+    } else {
+      if (multithreaded) {
+        if (colored)
+          _logger = spd::stderr_color_mt(logger_name);
+        else
+          _logger = spd::stderr_logger_mt(logger_name);
+      } else {
+        if (colored)
+          _logger = spd::stderr_color_st(logger_name);
+        else
+          _logger = spd::stderr_logger_st(logger_name);
+      }
     }
-
+  }
 };
 
-class FileLogger : public Logger
-{
+class FileLogger : public Logger {
 public:
-    FileLogger(const std::string& logger_name, const std::string& filename, bool multithreaded, bool truncate = false) : Logger(logger_name)
-    {
-        if(multithreaded)
-        {
-            _logger = spd::basic_logger_mt(logger_name, filename, truncate);
-        }
-        else
-        {
-            _logger = spd::basic_logger_st(logger_name, filename, truncate);
-        }
+  FileLogger(const std::string &logger_name, const std::string &filename,
+             bool multithreaded, bool truncate = false)
+      : Logger(logger_name) {
+    if (multithreaded) {
+      _logger = spd::basic_logger_mt(logger_name, filename, truncate);
+    } else {
+      _logger = spd::basic_logger_st(logger_name, filename, truncate);
     }
+  }
 };
 
-class RotatingLogger : public Logger
-{
+class RotatingLogger : public Logger {
 public:
-    RotatingLogger(const std::string& logger_name, const std::string& filename, bool multithreaded, size_t max_file_size, size_t max_files) : Logger(logger_name) 
-    {
-        if(multithreaded)
-        {
-            _logger = spd::rotating_logger_mt(logger_name, filename, max_file_size, max_files);
-        }
-        else
-        {
-            _logger = spd::rotating_logger_st(logger_name, filename, max_file_size, max_files);
-        }
+  RotatingLogger(const std::string &logger_name, const std::string &filename,
+                 bool multithreaded, size_t max_file_size, size_t max_files)
+      : Logger(logger_name) {
+    if (multithreaded) {
+      _logger = spd::rotating_logger_mt(logger_name, filename, max_file_size,
+                                        max_files);
+    } else {
+      _logger = spd::rotating_logger_st(logger_name, filename, max_file_size,
+                                        max_files);
     }
+  }
 };
 
-class DailyLogger : public Logger
-{
+class DailyLogger : public Logger {
 public:
-    DailyLogger(const std::string& logger_name, const std::string& filename, bool multithreaded=false, int hour=0, int minute=0) : Logger(logger_name) 
-    {
-        if(multithreaded)
-        {
-            _logger = spd::daily_logger_mt(logger_name, filename, hour, minute);
-        }
-        else
-        {
-            _logger = spd::daily_logger_st(logger_name, filename, hour, minute);
-        }
+  DailyLogger(const std::string &logger_name, const std::string &filename,
+              bool multithreaded = false, int hour = 0, int minute = 0)
+      : Logger(logger_name) {
+    if (multithreaded) {
+      _logger = spd::daily_logger_mt(logger_name, filename, hour, minute);
+    } else {
+      _logger = spd::daily_logger_st(logger_name, filename, hour, minute);
     }
+  }
 };
-
 
 #ifdef SPDLOG_ENABLE_SYSLOG
-class SyslogLogger : public Logger
-{
+class SyslogLogger : public Logger {
 public:
-    SyslogLogger(const std::string& logger_name, const std::string& ident = "", int syslog_option = 0, int syslog_facilty = (1<<3)) : Logger(logger_name)
-    {
-       _logger = spd::syslog_logger(logger_name, ident, syslog_option, syslog_facilty);
+  SyslogLogger(const std::string &logger_name, const std::string &ident = "",
+               bool multithreaded = false, int syslog_option = 0, int syslog_facilty = (1 << 3))
+      : Logger(logger_name) {
+    if (multithreaded) {
+      _logger = spd::syslog_logger_mt(logger_name, ident, syslog_option, syslog_facilty);
+    } else {
+      _logger = spd::syslog_logger_st(logger_name, ident, syslog_option, syslog_facilty);
     }
+  }
 };
 #endif
 
-
-
-class SinkLogger : public Logger
-{
+class SinkLogger : public Logger {
 public:
     SinkLogger(const std::string& logger_name, const Sink& sink) : Logger(logger_name)
     {
@@ -509,48 +457,27 @@ Logger get(const std::string& name)
         throw std::runtime_error(std::string("Logger name: " + name + " could not be found"));
 }
 
-
-void drop(const std::string& name)
-{
-    remove_logger(name);
-    spdlog::drop(name);
+void drop(const std::string &name) {
+  remove_logger(name);
+  spdlog::drop(name);
 }
 
-
-void drop_all()
-{
-    remove_logger_all();
-    spdlog::drop_all();
+void drop_all() {
+  remove_logger_all();
+  spdlog::drop_all();
 }
 
-class AsyncOverflowPolicy
-{
+class AsyncOverflowPolicy {
 public:
-    const static int block_retry {(int)spd::async_overflow_policy::block_retry };
-    const static int discard_log_msg { (int)spd::async_overflow_policy::discard_log_msg };
+  const static int block{(int)spd::async_overflow_policy::block};
+  const static int overrun_oldest{
+      (int)spd::async_overflow_policy::overrun_oldest};
 };
 
-
-void set_async_mode(size_t queue_size, int policy = 0, const std::function<void()>& worker_warmup_cb = nullptr, size_t flush_interval_ms = 0, const std::function<void()>& worker_teardown_cb = nullptr)
-{
-    if(flush_interval_ms == 0)
-        throw std::runtime_error("Zero is invalid value for flush interval millisec!");
-    spd::set_async_mode(queue_size, (spd::async_overflow_policy)policy, worker_warmup_cb, std::chrono::milliseconds(flush_interval_ms), worker_teardown_cb);
-    change_async_mode_on(true);
-}
-
-// Turn off async mode
-void set_sync_mode()
-{
-    spd::set_sync_mode();
-    change_async_mode_on(false);
-}
-
-
-}
+} // namespace
 
 PYBIND11_MODULE(spdlog, m) {
-    m.doc() = R"pbdoc(
+  m.doc() = R"pbdoc(
         spdlog module
         -----------------------
 
@@ -563,16 +490,6 @@ PYBIND11_MODULE(spdlog, m) {
            Logger
     )pbdoc";
 
-
-    m.def("set_async_mode", set_async_mode, 
-            py::arg("queue_size") = 1 << 16,
-            py::arg("async_overflow_policy") = AsyncOverflowPolicy::block_retry,
-            py::arg("worker_warmup_cb") = nullptr,
-            py::arg("flush_interval_ms") = 10,
-            py::arg("worker_teardown_cb") = nullptr
-         );
-    
-    m.def("set_sync_mode", set_sync_mode);
 
     py::class_<Sink>(m, "Sink")
         .def(py::init<>())
@@ -603,10 +520,10 @@ PYBIND11_MODULE(spdlog, m) {
     py::class_<stderr_color_sink_mt, Sink>(m, "stderr_color_sink_mt")
         .def(py::init<>());
 
-    py::class_<simple_file_sink_st, Sink>(m, "simple_file_sink_st")
+    py::class_<basic_file_sink_st, Sink>(m, "basic_file_sink_st")
         .def(py::init<std::string, bool>(),py::arg("filename"),py::arg("truncate")=false);
 
-    py::class_<simple_file_sink_mt, Sink>(m, "simple_file_sink_mt")
+    py::class_<basic_file_sink_mt, Sink>(m, "basic_file_sink_mt")
         .def(py::init<std::string, bool>(),py::arg("filename"),py::arg("truncate")=false);
 
     py::class_<daily_file_sink_st, Sink>(m, "daily_file_sink_st")
@@ -646,8 +563,8 @@ PYBIND11_MODULE(spdlog, m) {
         ;
 
     py::class_<AsyncOverflowPolicy>(m, "AsyncOverflowPolicy")
-        .def_property_readonly_static("BLOCK", [](py::object) {return AsyncOverflowPolicy::block_retry;})
-        .def_property_readonly_static("DISCARD_LOG_MSG", [](py::object) {return AsyncOverflowPolicy::discard_log_msg;})
+        .def_property_readonly_static("BLOCK", [](py::object) {return AsyncOverflowPolicy::block;})
+        .def_property_readonly_static("OVERRUN_OLDEST", [](py::object) {return AsyncOverflowPolicy::overrun_oldest;})
         ;
 
     py::enum_<spdlog::pattern_time_type>(m, "PatternTimeType")
@@ -672,7 +589,6 @@ PYBIND11_MODULE(spdlog, m) {
         .def("flush_on", &Logger::flush_on)
         .def("flush", &Logger::flush)
         .def("close", &Logger::close)
-        .def("async", &Logger::async)
         .def("sinks", &Logger::sinks)
         .def("set_error_handler", &Logger::set_error_handler)
         .def("error_handler", &Logger::error_handler)
@@ -684,27 +600,27 @@ PYBIND11_MODULE(spdlog, m) {
 
 
     py::class_<ConsoleLogger, Logger>(m, "ConsoleLogger")
-        .def(py::init<std::string, bool, bool, bool>(), 
+        .def(py::init<std::string, bool, bool, bool>(),
                 py::arg("name"),
-                py::arg("multithreaded") = false, 
-                py::arg("stdout") = true, 
+                py::arg("multithreaded") = false,
+                py::arg("stdout") = true,
                 py::arg("colored") = true
             )
         ;
 
-    py::class_<FileLogger, Logger>(m, "FileLogger") 
+    py::class_<FileLogger, Logger>(m, "FileLogger")
         .def(py::init<std::string, std::string, bool, bool>(),
                 py::arg("name"),
-                py::arg("filename"), 
-                py::arg("multithreaded") = false, 
+                py::arg("filename"),
+                py::arg("multithreaded") = false,
                 py::arg("truncate") = false
             )
         ;
     py::class_<RotatingLogger, Logger>(m, "RotatingLogger")
         .def(py::init<std::string, std::string, bool, int, int>(),
                 py::arg("name"),
-                py::arg("filename"), 
-                py::arg("multithreaded"), 
+                py::arg("filename"),
+                py::arg("multithreaded"),
                 py::arg("max_file_size"),
                 py::arg("max_files")
             )
@@ -712,14 +628,14 @@ PYBIND11_MODULE(spdlog, m) {
     py::class_<DailyLogger, Logger>(m, "DailyLogger")
         .def(py::init<std::string, std::string, bool, int, int>(),
                 py::arg("name"),
-                py::arg("filename"), 
-                py::arg("multithreaded") = false, 
+                py::arg("filename"),
+                py::arg("multithreaded") = false,
                 py::arg("hour") = 0,
                 py::arg("minute") = 0
             )
        ;
 
-    
+
 //SyslogLogger(const std::string& logger_name, const std::string& ident = "", int syslog_option = 0, int syslog_facilty = (1<<3))
 #ifdef SPDLOG_ENABLE_SYSLOG
     py::class_<syslog_sink, Sink>(m, "syslog_sink")
@@ -732,8 +648,8 @@ PYBIND11_MODULE(spdlog, m) {
     py::class_<SyslogLogger, Logger>(m, "SyslogLogger")
        .def(py::init<std::string, std::string, int, int>(),
                 py::arg("name"),
-                py::arg("ident") = "", 
-                py::arg("syslog_option") = 0, 
+                py::arg("ident") = "",
+                py::arg("syslog_option") = 0,
                 py::arg("syslog_facility") = (1<<3)
             )
        ;
@@ -743,8 +659,8 @@ PYBIND11_MODULE(spdlog, m) {
     m.def("drop_all", drop_all);
 
 #ifdef VERSION_INFO
-    m.attr("__version__") = VERSION_INFO;
+  m.attr("__version__") = VERSION_INFO;
 #else
-    m.attr("__version__") = "dev";
+  m.attr("__version__") = "dev";
 #endif
 }
