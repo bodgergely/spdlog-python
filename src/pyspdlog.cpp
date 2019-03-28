@@ -566,7 +566,7 @@ PYBIND11_MODULE(spdlog, m) {
 
     m.def("set_async_mode", set_async_mode, 
             py::arg("queue_size") = 1 << 16,
-            py::arg("async_overflow_policy") = AsyncOverflowPolicy::block_retry,
+            py::arg("async_overflow_policy") = 0,
             py::arg("worker_warmup_cb") = nullptr,
             py::arg("flush_interval_ms") = 10,
             py::arg("worker_teardown_cb") = nullptr
