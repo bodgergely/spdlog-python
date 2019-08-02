@@ -8,3 +8,4 @@ dist/
 *.egg-info/
 .project
 .pydevproject
+tests/__pycache__/
