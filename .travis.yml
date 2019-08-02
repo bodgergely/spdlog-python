@@ -1,0 +1,12 @@
+dist: xenial        # required for Python >= 3.7
+language: python
+
+python:
+  - "3.6"
+  - "3.7"
+
+install:
+  - git submodule update --init --recursive
+  - pip install .
+
+script: pytest
