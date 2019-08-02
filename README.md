@@ -41,8 +41,6 @@ or
 ```
 git clone https://github.com/bodgergely/spdlog-python.git
 cd pyspdlog 
-
-pip install spdlog-python
 git submodule update --init --recursive
 python setup.py install
 ```
