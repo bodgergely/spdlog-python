@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/bodgergely/spdlog-python.svg?branch=master)](https://travis-ci.org/bodgergely/spdlog-python)
+
 pyspdlog
 ==========
 python wrapper around the fast C++ logger called [spdlog](https://github.com/gabime/spdlog)
