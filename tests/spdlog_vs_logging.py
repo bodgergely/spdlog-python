@@ -94,21 +94,21 @@ def print_stats(timings):
             print(msg_len, " - ", t)
 
 
-def run_test(async):
+def run_test(async_mode):
     
     message_lengths = [10, 20, 40, 100, 300, 1000, 5000, 20000]
     repeat_cnt = 5
     epochs = 20
     sub_epochs = 10
-    if async:
+    if async_mode:
         spdlog.set_async_mode(queue_size=1 << 24)
     else: 
         spdlog.set_sync_mode()
 
 
     spd_logger = spdlog.FileLogger(name='speedlogger', filename='speedlog.log', multithreaded=False, truncate=False)
-    if spd_logger.async() != async:
-        print(f"spdlog should be in {async} mode but is in {spd_logger.async()}")
+    if spd_logger.async_mode() != async_mode:
+        print(f"spdlog should be in {async_mode} mode but is in {spd_logger.async_mode()}")
 
     standard_logger = logging.getLogger('logging')
     fh = logging.FileHandler('logging.log')
@@ -132,7 +132,7 @@ def run_test(async):
     for msg_len, ratio in ratios.items():
         print(f"spdlog takes {ratio * 100}% of logging at message len: {msg_len}")
 
-    if async:
+    if async_mode:
         sleeptime = 4
         print(f"Sleeping for secs: {sleeptime}")
         time.sleep(sleeptime)
