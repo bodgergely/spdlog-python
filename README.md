@@ -1,6 +1,6 @@
 [![Build Status](https://travis-ci.org/bodgergely/spdlog-python.svg?branch=master)](https://travis-ci.org/bodgergely/spdlog-python)
 
-pyspdlog
+spdlog-python
 ==========
 python wrapper around the fast C++ logger called [spdlog](https://github.com/gabime/spdlog)
 
@@ -44,7 +44,7 @@ or
 
 ```
 git clone https://github.com/bodgergely/spdlog-python.git
-cd pyspdlog 
+cd spdlog-python
 git submodule update --init --recursive
 python setup.py install
 ```
