@@ -3,6 +3,7 @@
 pyspdlog
 ==========
 python wrapper around the fast C++ logger called [spdlog](https://github.com/gabime/spdlog)
+**Current version: tag - v2.0.0**
 
 Introduction
 ============
