@@ -11,18 +11,15 @@
 using namespace pybind11::literals;
 
 #include <spdlog/spdlog.h>
-//#include <spdlog/sinks/stdout_sinks.h>
-#ifdef WIN32
-#include <spdlog/sinks/wincolor_sink.h>
-#else
-#include <spdlog/sinks/ansicolor_sink.h>
-#endif
-////#include <spdlog/sinks/simple_file_sink.h>
-////#include <spdlog/sinks/daily_file_sink.h>
-//#include <spdlog/sinks/rotating_file_sink.h>
+#include <spdlog/async.h>
+#include <spdlog/async_logger.h>
+#include <spdlog/sinks/basic_file_sink.h>
+#include <spdlog/sinks/daily_file_sink.h>
 #include <spdlog/sinks/null_sink.h>
-//#include <spdlog/sinks/syslog_sink.h>
-//#include <spdlog/async_logger.h>
+#include <spdlog/sinks/rotating_file_sink.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/sinks/stdout_sinks.h>
+#include <spdlog/sinks/syslog_sink.h>
 
 #include <iostream>
 #include <memory>
@@ -35,28 +32,12 @@ using namespace pybind11::literals;
 namespace spd = spdlog;
 namespace py = pybind11;
 
-namespace spdlog {
-namespace sinks {
-#ifdef WIN32
-    using stdout_color_sink_st = wincolor_stdout_sink_st;
-    using stdout_color_sink_mt = wincolor_stdout_sink_mt;
-    using stderr_color_sink_st = wincolor_stderr_sink_st;
-    using stderr_color_sink_mt = wincolor_stderr_sink_mt;
-#else
-    using stdout_color_sink_st = ansicolor_stdout_sink_st;
-    using stdout_color_sink_mt = ansicolor_stdout_sink_mt;
-    using stderr_color_sink_st = ansicolor_stderr_sink_st;
-    using stderr_color_sink_mt = ansicolor_stderr_sink_mt;
-#endif
-}
-}
-
 namespace { // Avoid cluttering the global namespace.
 
 class Logger;
 
 bool g_async_mode_on = false;
-std::mutex mutex_async_mode_on;
+auto g_async_overflow_policy = spdlog::async_overflow_policy::block;
 
 std::unordered_map<std::string, Logger*> g_loggers;
 std::mutex mutex_loggers;
@@ -84,17 +65,6 @@ void remove_logger_all()
 {
     std::lock_guard<std::mutex> lck(mutex_loggers);
     g_loggers.clear();
-}
-bool is_async_mode_on()
-{
-    std::lock_guard<std::mutex> lck(mutex_async_mode_on);
-    return g_async_mode_on;
-}
-
-void change_async_mode_on(bool val)
-{
-    std::lock_guard<std::mutex> lck(mutex_async_mode_on);
-    g_async_mode_on = val;
 }
 
 class LogLevel {
@@ -214,19 +184,19 @@ public:
     }
 };
 
-class simple_file_sink_st : public Sink {
+class basic_file_sink_st : public Sink {
 public:
-    simple_file_sink_st(const std::string& base_filename, bool truncate)
+    basic_file_sink_st(const std::string& base_filename, bool truncate)
     {
-        _sink = std::make_shared<spdlog::sinks::simple_file_sink_st>(base_filename, truncate);
+        _sink = std::make_shared<spdlog::sinks::basic_file_sink_st>(base_filename, truncate);
     }
 };
 
-class simple_file_sink_mt : public Sink {
+class basic_file_sink_mt : public Sink {
 public:
-    simple_file_sink_mt(const std::string& base_filename, bool truncate)
+    basic_file_sink_mt(const std::string& base_filename, bool truncate)
     {
-        _sink = std::make_shared<spdlog::sinks::simple_file_sink_mt>(base_filename, truncate);
+        _sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(base_filename, truncate);
     }
 };
 
@@ -279,20 +249,30 @@ public:
 };
 
 #ifdef SPDLOG_ENABLE_SYSLOG
-class syslog_sink : public Sink {
+class syslog_sink_st : public Sink {
 public:
-    syslog_sink(const std::string& ident = "", int syslog_option = 0, int syslog_facility = (1 << 3))
+    syslog_sink_st(const std::string& ident = "", int syslog_option = 0, int syslog_facility = (1 << 3))
     {
-        _sink = std::make_shared<spdlog::sinks::syslog_sink>(ident, syslog_option, syslog_facility);
+        _sink = std::make_shared<spdlog::sinks::syslog_sink_st>(ident, syslog_option, syslog_facility);
+    }
+};
+
+class syslog_sink_mt : public Sink {
+public:
+    syslog_sink_mt(const std::string& ident = "", int syslog_option = 0, int syslog_facility = (1 << 3))
+    {
+        _sink = std::make_shared<spdlog::sinks::syslog_sink_mt>(ident, syslog_option, syslog_facility);
     }
 };
 #endif
 
 class Logger {
 public:
-    Logger(const std::string& name)
+    using async_factory_nb = spdlog::async_factory_impl<spdlog::async_overflow_policy::overrun_oldest>;
+
+    Logger(const std::string& name, bool async_mode)
         : _name(name)
-        , _async(is_async_mode_on())
+        , _async(async_mode)
     {
         register_logger(name, this);
     }
@@ -336,18 +316,12 @@ public:
     // automatically call flush() if message level >= log_level
     void flush_on(int log_level)
     {
-        if (!_async)
-            _logger->flush_on((spd::level::level_enum)log_level);
-        else
-            throw std::runtime_error("Can only flush explicitly on sync logger!");
+        _logger->flush_on((spd::level::level_enum)log_level);
     }
 
     void flush()
     {
-        if (!_async)
-            _logger->flush();
-        else
-            throw std::runtime_error("Can only flush explicitly on sync logger!");
+        _logger->flush();
     }
 
     bool async()
@@ -393,33 +367,101 @@ protected:
 
 class ConsoleLogger : public Logger {
 public:
-    ConsoleLogger(const std::string& logger_name, bool multithreaded, bool stdout, bool colored)
-        : Logger(logger_name)
+    ConsoleLogger(const std::string& logger_name, bool multithreaded, bool stdout, bool colored, bool async_mode = g_async_mode_on)
+        : Logger(logger_name, async_mode)
     {
         if (stdout) {
             if (multithreaded) {
-                if (colored)
-                    _logger = spd::stdout_color_mt(logger_name);
-                else
-                    _logger = spd::stdout_logger_mt(logger_name);
+                if (colored) {
+                    if (async_mode) {
+                        if (g_async_overflow_policy == spdlog::async_overflow_policy::overrun_oldest) {
+                            _logger = spd::stdout_color_mt<async_factory_nb>(logger_name);
+                        } else {
+                            _logger = spd::stdout_color_mt<spdlog::async_factory>(logger_name);
+                        }
+                    } else {
+                        _logger = spd::stdout_color_mt(logger_name);
+                    }
+                } else {
+                    if (async_mode) {
+                        if (g_async_overflow_policy == spdlog::async_overflow_policy::overrun_oldest) {
+                            _logger = spd::stdout_logger_mt<async_factory_nb>(logger_name);
+                        } else {
+                            _logger = spd::stdout_logger_mt<spdlog::async_factory>(logger_name);
+                        }
+                    } else {
+                        _logger = spd::stdout_logger_mt(logger_name);
+                    }
+                }
             } else {
-                if (colored)
-                    _logger = spd::stdout_color_st(logger_name);
-                else
-                    _logger = spd::stdout_logger_st(logger_name);
+                if (colored) {
+                    if (async_mode) {
+                        if (g_async_overflow_policy == spdlog::async_overflow_policy::overrun_oldest) {
+                            _logger = spd::stdout_color_st<async_factory_nb>(logger_name);
+                        } else {
+                            _logger = spd::stdout_color_st<spdlog::async_factory>(logger_name);
+                        }
+                    } else {
+                        _logger = spd::stdout_color_st(logger_name);
+                    }
+                } else {
+                    if (async_mode) {
+                        if (g_async_overflow_policy == spdlog::async_overflow_policy::overrun_oldest) {
+                            _logger = spd::stdout_logger_st<async_factory_nb>(logger_name);
+                        } else {
+                            _logger = spd::stdout_logger_st<spdlog::async_factory>(logger_name);
+                        }
+                    } else {
+                        _logger = spd::stdout_logger_st(logger_name);
+                    }
+                }
             }
 
         } else {
             if (multithreaded) {
-                if (colored)
-                    _logger = spd::stderr_color_mt(logger_name);
-                else
-                    _logger = spd::stderr_logger_mt(logger_name);
+                if (colored) {
+                    if (async_mode) {
+                        if (g_async_overflow_policy == spdlog::async_overflow_policy::overrun_oldest) {
+                            _logger = spd::stderr_color_mt<async_factory_nb>(logger_name);
+                        } else {
+                            _logger = spd::stderr_color_mt<spdlog::async_factory>(logger_name);
+                        }
+                    } else {
+                        _logger = spd::stderr_color_mt(logger_name);
+                    }
+                } else {
+                    if (async_mode) {
+                        if (g_async_overflow_policy == spdlog::async_overflow_policy::overrun_oldest) {
+                            _logger = spd::stderr_logger_mt<async_factory_nb>(logger_name);
+                        } else {
+                            _logger = spd::stderr_logger_mt<spdlog::async_factory>(logger_name);
+                        }
+                    } else {
+                        _logger = spd::stderr_logger_mt(logger_name);
+                    }
+                }
             } else {
-                if (colored)
-                    _logger = spd::stderr_color_st(logger_name);
-                else
-                    _logger = spd::stderr_logger_st(logger_name);
+                if (colored) {
+                    if (async_mode) {
+                        if (g_async_overflow_policy == spdlog::async_overflow_policy::overrun_oldest) {
+                            _logger = spd::stderr_color_st<async_factory_nb>(logger_name);
+                        } else {
+                            _logger = spd::stderr_color_st<spdlog::async_factory>(logger_name);
+                        }
+                    } else {
+                        _logger = spd::stderr_color_st(logger_name);
+                    }
+                } else {
+                    if (async_mode) {
+                        if (g_async_overflow_policy == spdlog::async_overflow_policy::overrun_oldest) {
+                            _logger = spd::stderr_logger_st<async_factory_nb>(logger_name);
+                        } else {
+                            _logger = spd::stderr_logger_st<spdlog::async_factory>(logger_name);
+                        }
+                    } else {
+                        _logger = spd::stderr_logger_st(logger_name);
+                    }
+                }
             }
         }
     }
@@ -427,39 +469,87 @@ public:
 
 class FileLogger : public Logger {
 public:
-    FileLogger(const std::string& logger_name, const std::string& filename, bool multithreaded, bool truncate = false)
-        : Logger(logger_name)
+    FileLogger(const std::string& logger_name, const std::string& filename, bool multithreaded, bool truncate = false, bool async_mode = g_async_mode_on)
+        : Logger(logger_name, async_mode)
     {
         if (multithreaded) {
-            _logger = spd::basic_logger_mt(logger_name, filename, truncate);
+            if (async_mode) {
+                if (g_async_overflow_policy == spdlog::async_overflow_policy::overrun_oldest) {
+                    _logger = spd::basic_logger_mt<async_factory_nb>(logger_name, filename, truncate);
+                } else {
+                    _logger = spd::basic_logger_mt<spdlog::async_factory>(logger_name, filename, truncate);
+                }
+            } else {
+                _logger = spd::basic_logger_mt(logger_name, filename, truncate);
+            }
         } else {
-            _logger = spd::basic_logger_st(logger_name, filename, truncate);
+            if (async_mode) {
+                if (g_async_overflow_policy == spdlog::async_overflow_policy::overrun_oldest) {
+                    _logger = spd::basic_logger_st<async_factory_nb>(logger_name, filename, truncate);
+                } else {
+                    _logger = spd::basic_logger_st<spdlog::async_factory>(logger_name, filename, truncate);
+                }
+            } else {
+                _logger = spd::basic_logger_st(logger_name, filename, truncate);
+            }
         }
     }
 };
 
 class RotatingLogger : public Logger {
 public:
-    RotatingLogger(const std::string& logger_name, const std::string& filename, bool multithreaded, size_t max_file_size, size_t max_files)
-        : Logger(logger_name)
+    RotatingLogger(const std::string& logger_name, const std::string& filename, bool multithreaded, size_t max_file_size, size_t max_files, bool async_mode = g_async_mode_on)
+        : Logger(logger_name, async_mode)
     {
         if (multithreaded) {
-            _logger = spd::rotating_logger_mt(logger_name, filename, max_file_size, max_files);
+            if (async_mode) {
+                if (g_async_overflow_policy == spdlog::async_overflow_policy::overrun_oldest) {
+                    _logger = spd::rotating_logger_mt<async_factory_nb>(logger_name, filename, max_file_size, max_files);
+                } else {
+                    _logger = spd::rotating_logger_mt<spdlog::async_factory>(logger_name, filename, max_file_size, max_files);
+                }
+            } else {
+                _logger = spd::rotating_logger_mt(logger_name, filename, max_file_size, max_files);
+            }
         } else {
-            _logger = spd::rotating_logger_st(logger_name, filename, max_file_size, max_files);
+            if (async_mode) {
+                if (g_async_overflow_policy == spdlog::async_overflow_policy::overrun_oldest) {
+                    _logger = spd::rotating_logger_st<async_factory_nb>(logger_name, filename, max_file_size, max_files);
+                } else {
+                    _logger = spd::rotating_logger_st<spdlog::async_factory>(logger_name, filename, max_file_size, max_files);
+                }
+            } else {
+                _logger = spd::rotating_logger_st(logger_name, filename, max_file_size, max_files);
+            }
         }
     }
 };
 
 class DailyLogger : public Logger {
 public:
-    DailyLogger(const std::string& logger_name, const std::string& filename, bool multithreaded = false, int hour = 0, int minute = 0)
-        : Logger(logger_name)
+    DailyLogger(const std::string& logger_name, const std::string& filename, bool multithreaded = false, int hour = 0, int minute = 0, bool async_mode = g_async_mode_on)
+        : Logger(logger_name, async_mode)
     {
         if (multithreaded) {
-            _logger = spd::daily_logger_mt(logger_name, filename, hour, minute);
+            if (async_mode) {
+                if (g_async_overflow_policy == spdlog::async_overflow_policy::overrun_oldest) {
+                    _logger = spd::daily_logger_mt<async_factory_nb>(logger_name, filename, hour, minute);
+                } else {
+                    _logger = spd::daily_logger_mt<spdlog::async_factory>(logger_name, filename, hour, minute);
+                }
+            } else {
+                _logger = spd::daily_logger_mt(logger_name, filename, hour, minute);
+            }
         } else {
-            _logger = spd::daily_logger_st(logger_name, filename, hour, minute);
+            if (async_mode) {
+                if (g_async_overflow_policy == spdlog::async_overflow_policy::overrun_oldest) {
+                    _logger = spd::daily_logger_st<async_factory_nb>(logger_name, filename, hour, minute);
+                } else {
+                    _logger = spd::daily_logger_st<spdlog::async_factory>(logger_name, filename, hour, minute);
+                }
+            } else {
+                _logger = spd::daily_logger_st(logger_name, filename, hour, minute);
+            }
         }
     }
 };
@@ -467,29 +557,86 @@ public:
 #ifdef SPDLOG_ENABLE_SYSLOG
 class SyslogLogger : public Logger {
 public:
-    SyslogLogger(const std::string& logger_name, const std::string& ident = "", int syslog_option = 0, int syslog_facilty = (1 << 3))
-        : Logger(logger_name)
+    SyslogLogger(const std::string& logger_name, bool multithreaded = false, const std::string& ident = "", int syslog_option = 0, int syslog_facilty = (1 << 3), bool async_mode = g_async_mode_on)
+        : Logger(logger_name, async_mode)
     {
-        _logger = spd::syslog_logger(logger_name, ident, syslog_option, syslog_facilty);
+        if (multithreaded) {
+            if (async_mode) {
+                if (g_async_overflow_policy == spdlog::async_overflow_policy::overrun_oldest) {
+                    _logger = spd::syslog_logger_mt<async_factory_nb>(logger_name, ident, syslog_option, syslog_facilty);
+                } else {
+                    _logger = spd::syslog_logger_mt<spdlog::async_factory>(logger_name, ident, syslog_option, syslog_facilty);
+                }
+            } else {
+                _logger = spd::syslog_logger_mt(logger_name, ident, syslog_option, syslog_facilty);
+            }
+        } else {
+            if (async_mode) {
+                if (g_async_overflow_policy == spdlog::async_overflow_policy::overrun_oldest) {
+                    _logger = spd::syslog_logger_st<async_factory_nb>(logger_name, ident, syslog_option, syslog_facilty);
+                } else {
+                    _logger = spd::syslog_logger_st<spdlog::async_factory>(logger_name, ident, syslog_option, syslog_facilty);
+                }
+            } else {
+                _logger = spd::syslog_logger_st(logger_name, ident, syslog_option, syslog_facilty);
+            }
+        }
     }
 };
 #endif
 
+class AsyncOverflowPolicy {
+public:
+    const static int block{ (int)spd::async_overflow_policy::block };
+    const static int overrun_oldest{ (int)spd::async_overflow_policy::overrun_oldest };
+};
+
+void set_async_mode(size_t queue_size = spdlog::details::default_async_q_size, size_t thread_count = 1, int async_overflow_policy = AsyncOverflowPolicy::block) {
+    // Initialize/replace the global spdlog thread pool.
+    auto& registry = spdlog::details::registry::instance();
+    std::lock_guard<std::recursive_mutex> tp_lck(registry.tp_mutex());
+    auto tp = std::make_shared<spd::details::thread_pool>(queue_size, thread_count);
+    registry.set_tp(tp);
+
+    g_async_overflow_policy = static_cast<spd::async_overflow_policy>(async_overflow_policy);
+    g_async_mode_on = true;
+}
+
+std::shared_ptr<spdlog::details::thread_pool> thread_pool() {
+    auto& registry = spdlog::details::registry::instance();
+    std::lock_guard<std::recursive_mutex> tp_lck(registry.tp_mutex());
+    auto tp = registry.get_tp();
+    if(tp == nullptr) {
+        set_async_mode();
+        auto tp = registry.get_tp();
+    }
+
+    return tp;
+}
+
 class SinkLogger : public Logger {
 public:
-    SinkLogger(const std::string& logger_name, const Sink& sink)
-        : Logger(logger_name)
+    SinkLogger(const std::string& logger_name, const Sink& sink, bool async_mode = g_async_mode_on)
+        : Logger(logger_name, async_mode)
     {
-        _logger = std::shared_ptr<spd::logger>(new spd::logger(logger_name, sink.get_sink()));
+        if (async_mode) {
+            _logger = std::shared_ptr<spd::async_logger>(new spd::async_logger(logger_name, sink.get_sink(), thread_pool(), g_async_overflow_policy));
+        } else {
+            _logger = std::shared_ptr<spd::logger>(new spd::logger(logger_name, sink.get_sink()));
+        }
     }
-    SinkLogger(const std::string& logger_name, const std::vector<Sink>& sink_list)
-        : Logger(logger_name)
+    SinkLogger(const std::string& logger_name, const std::vector<Sink>& sink_list, bool async_mode = g_async_mode_on)
+        : Logger(logger_name, async_mode)
     {
         std::vector<spd::sink_ptr> sinks;
         for (auto sink : sink_list)
             sinks.push_back(sink.get_sink());
-        _logger = std::shared_ptr<spd::logger>(
-            new spd::logger(logger_name, sinks.begin(), sinks.end()));
+
+        if (async_mode) {
+            _logger = std::shared_ptr<spd::async_logger>(new spd::async_logger(logger_name, sinks.begin(), sinks.end(), thread_pool(), g_async_overflow_policy));
+        } else {
+            _logger = std::shared_ptr<spd::logger>(new spd::logger(logger_name, sinks.begin(), sinks.end()));
+        }
     }
 };
 
@@ -514,26 +661,6 @@ void drop_all()
     spdlog::drop_all();
 }
 
-class AsyncOverflowPolicy {
-public:
-    const static int block_retry{ (int)spd::async_overflow_policy::block_retry };
-    const static int discard_log_msg{ (int)spd::async_overflow_policy::discard_log_msg };
-};
-
-void set_async_mode(size_t queue_size, int policy = 0, const std::function<void()>& worker_warmup_cb = nullptr, size_t flush_interval_ms = 0, const std::function<void()>& worker_teardown_cb = nullptr)
-{
-    if (flush_interval_ms == 0)
-        throw std::runtime_error("Zero is invalid value for flush interval millisec!");
-    spd::set_async_mode(queue_size, (spd::async_overflow_policy)policy, worker_warmup_cb, std::chrono::milliseconds(flush_interval_ms), worker_teardown_cb);
-    change_async_mode_on(true);
-}
-
-// Turn off async mode
-void set_sync_mode()
-{
-    spd::set_sync_mode();
-    change_async_mode_on(false);
-}
 }
 
 PYBIND11_MODULE(spdlog, m)
@@ -555,12 +682,8 @@ PYBIND11_MODULE(spdlog, m)
 
     m.def("set_async_mode", set_async_mode,
         py::arg("queue_size") = 1 << 16,
-        py::arg("async_overflow_policy") = 0,
-        py::arg("worker_warmup_cb") = nullptr,
-        py::arg("flush_interval_ms") = 10,
-        py::arg("worker_teardown_cb") = nullptr);
-
-    m.def("set_sync_mode", set_sync_mode);
+        py::arg("thread_count") = 1,
+        py::arg("overflow_policy") = 0);
 
     py::class_<Sink>(m, "Sink")
         .def(py::init<>())
@@ -590,10 +713,10 @@ PYBIND11_MODULE(spdlog, m)
     py::class_<stderr_color_sink_mt, Sink>(m, "stderr_color_sink_mt")
         .def(py::init<>());
 
-    py::class_<simple_file_sink_st, Sink>(m, "simple_file_sink_st")
+    py::class_<basic_file_sink_st, Sink>(m, "basic_file_sink_st")
         .def(py::init<std::string, bool>(), py::arg("filename"), py::arg("truncate") = false);
 
-    py::class_<simple_file_sink_mt, Sink>(m, "simple_file_sink_mt")
+    py::class_<basic_file_sink_mt, Sink>(m, "basic_file_sink_mt")
         .def(py::init<std::string, bool>(), py::arg("filename"), py::arg("truncate") = false);
 
     py::class_<daily_file_sink_st, Sink>(m, "daily_file_sink_st")
@@ -632,8 +755,8 @@ PYBIND11_MODULE(spdlog, m)
         .def_property_readonly_static("OFF", [](py::object) { return LogLevel::off; });
 
     py::class_<AsyncOverflowPolicy>(m, "AsyncOverflowPolicy")
-        .def_property_readonly_static("BLOCK", [](py::object) { return AsyncOverflowPolicy::block_retry; })
-        .def_property_readonly_static("DISCARD_LOG_MSG", [](py::object) { return AsyncOverflowPolicy::discard_log_msg; });
+        .def_property_readonly_static("BLOCK", [](py::object) { return AsyncOverflowPolicy::block; })
+        .def_property_readonly_static("OVERRUN_OLDEST", [](py::object) { return AsyncOverflowPolicy::overrun_oldest; });
 
     py::enum_<spdlog::pattern_time_type>(m, "PatternTimeType")
         .value("local", spdlog::pattern_time_type::local)
@@ -664,49 +787,94 @@ PYBIND11_MODULE(spdlog, m)
         .def("get_underlying_logger", &Logger::get_underlying_logger);
 
     py::class_<SinkLogger, Logger>(m, "SinkLogger")
-        .def(py::init<const std::string&, const std::vector<Sink>&>());
+    .def(py::init<const std::string&, const std::vector<Sink>&>(),
+        py::arg("name"),
+        py::arg("sinks"))
+    .def(py::init<const std::string&, const std::vector<Sink>&, bool>(),
+        py::arg("name"),
+        py::arg("sinks"),
+        py::arg("async_mode"));
 
-    py::class_<ConsoleLogger, Logger>(m, "ConsoleLogger")
-        .def(py::init<std::string, bool, bool, bool>(),
-            py::arg("name"),
-            py::arg("multithreaded") = false,
-            py::arg("stdout") = true,
-            py::arg("colored") = true);
+py::class_<ConsoleLogger, Logger>(m, "ConsoleLogger")
+    .def(py::init<std::string, bool, bool, bool>(),
+        py::arg("name"),
+        py::arg("multithreaded") = false,
+        py::arg("stdout") = true,
+        py::arg("colored") = true)
+    .def(py::init<std::string, bool, bool, bool, bool>(),
+        py::arg("name"),
+        py::arg("multithreaded") = false,
+        py::arg("stdout") = true,
+        py::arg("colored") = true,
+        py::arg("async_mode"));
 
-    py::class_<FileLogger, Logger>(m, "FileLogger")
-        .def(py::init<std::string, std::string, bool, bool>(),
-            py::arg("name"),
-            py::arg("filename"),
-            py::arg("multithreaded") = false,
-            py::arg("truncate") = false);
-    py::class_<RotatingLogger, Logger>(m, "RotatingLogger")
-        .def(py::init<std::string, std::string, bool, int, int>(),
-            py::arg("name"),
-            py::arg("filename"),
-            py::arg("multithreaded"),
-            py::arg("max_file_size"),
-            py::arg("max_files"));
-    py::class_<DailyLogger, Logger>(m, "DailyLogger")
-        .def(py::init<std::string, std::string, bool, int, int>(),
-            py::arg("name"),
-            py::arg("filename"),
-            py::arg("multithreaded") = false,
-            py::arg("hour") = 0,
-            py::arg("minute") = 0);
+py::class_<FileLogger, Logger>(m, "FileLogger")
+    .def(py::init<std::string, std::string, bool, bool>(),
+        py::arg("name"),
+        py::arg("filename"),
+        py::arg("multithreaded") = false,
+        py::arg("truncate") = false)
+    .def(py::init<std::string, std::string, bool, bool, bool>(),
+        py::arg("name"),
+        py::arg("filename"),
+        py::arg("multithreaded") = false,
+        py::arg("truncate") = false,
+        py::arg("async_mode"));
+py::class_<RotatingLogger, Logger>(m, "RotatingLogger")
+    .def(py::init<std::string, std::string, bool, int, int>(),
+        py::arg("name"),
+        py::arg("filename"),
+        py::arg("multithreaded"),
+        py::arg("max_file_size"),
+        py::arg("max_files"))
+    .def(py::init<std::string, std::string, bool, int, int, bool>(),
+        py::arg("name"),
+        py::arg("filename"),
+        py::arg("multithreaded"),
+        py::arg("max_file_size"),
+        py::arg("max_files"),
+        py::arg("async_mode"));
+py::class_<DailyLogger, Logger>(m, "DailyLogger")
+    .def(py::init<std::string, std::string, bool, int, int>(),
+        py::arg("name"),
+        py::arg("filename"),
+        py::arg("multithreaded") = false,
+        py::arg("hour") = 0,
+        py::arg("minute") = 0)
+    .def(py::init<std::string, std::string, bool, int, int, bool>(),
+        py::arg("name"),
+        py::arg("filename"),
+        py::arg("multithreaded") = false,
+        py::arg("hour") = 0,
+        py::arg("minute") = 0,
+        py::arg("async_mode"));
 
 //SyslogLogger(const std::string& logger_name, const std::string& ident = "", int syslog_option = 0, int syslog_facilty = (1<<3))
 #ifdef SPDLOG_ENABLE_SYSLOG
-    py::class_<syslog_sink, Sink>(m, "syslog_sink")
-        .def(py::init<std::string, int, int>(),
-            py::arg("ident") = "",
-            py::arg("syslog_option") = 0,
+py::class_<syslog_sink_st, Sink>(m, "syslog_sink_st")
+    .def(py::init<std::string, int, int>(),
+        py::arg("ident") = "",
+        py::arg("syslog_option") = 0,
+        py::arg("syslog_facility") = (1 << 3));
+py::class_<syslog_sink_mt, Sink>(m, "syslog_sink_mt")
+    .def(py::init<std::string, int, int>(),
+        py::arg("ident") = "",
+        py::arg("syslog_option") = 0,
             py::arg("syslog_facility") = (1 << 3));
     py::class_<SyslogLogger, Logger>(m, "SyslogLogger")
-        .def(py::init<std::string, std::string, int, int>(),
+        .def(py::init<std::string, bool, std::string, int, int>(),
             py::arg("name"),
+            py::arg("multithreaded") = false,
             py::arg("ident") = "",
             py::arg("syslog_option") = 0,
-            py::arg("syslog_facility") = (1 << 3));
+            py::arg("syslog_facility") = (1 << 3))
+        .def(py::init<std::string, bool, std::string, int, int, bool>(),
+            py::arg("name"),
+            py::arg("multithreaded") = false,
+            py::arg("ident") = "",
+            py::arg("syslog_option") = 0,
+            py::arg("syslog_facility") = (1 << 3),
+            py::arg("async_mode"));
 #endif
     m.def("get", get, py::arg("name"), py::return_value_policy::copy);
     m.def("drop", drop, py::arg("name"));

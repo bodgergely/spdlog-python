@@ -102,9 +102,6 @@ def run_test(async_mode):
     sub_epochs = 10
     if async_mode:
         spdlog.set_async_mode(queue_size=1 << 24)
-    else: 
-        spdlog.set_sync_mode()
-
 
     spd_logger = spdlog.FileLogger(name='speedlogger', filename='speedlog.log', multithreaded=False, truncate=False)
     if spd_logger.async_mode() != async_mode:
