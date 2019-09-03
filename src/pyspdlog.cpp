@@ -381,6 +381,10 @@ public:
         return _logger->error_handler();
     }
 
+    std::shared_ptr<spdlog::logger> get_underlying_logger() {
+        return _logger;
+    }
+
 protected:
     const std::string _name;
     bool _async;
@@ -547,6 +551,8 @@ PYBIND11_MODULE(spdlog, m)
            Logger
     )pbdoc";
 
+    py::class_<spd::logger, std::shared_ptr<spd::logger>>(m, "_spd_logger");
+
     m.def("set_async_mode", set_async_mode,
         py::arg("queue_size") = 1 << 16,
         py::arg("async_overflow_policy") = 0,
@@ -654,7 +660,8 @@ PYBIND11_MODULE(spdlog, m)
         .def("async_mode", &Logger::async)
         .def("sinks", &Logger::sinks)
         .def("set_error_handler", &Logger::set_error_handler)
-        .def("error_handler", &Logger::error_handler);
+        .def("error_handler", &Logger::error_handler)
+        .def("get_underlying_logger", &Logger::get_underlying_logger);
 
     py::class_<SinkLogger, Logger>(m, "SinkLogger")
         .def(py::init<const std::string&, const std::vector<Sink>&>());
