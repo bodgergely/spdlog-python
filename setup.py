@@ -7,7 +7,6 @@ from setuptools import setup
 from setuptools.extension import Extension
 
 
-
 class get_pybind_include(object):
     def __init__(self, user=False):
         self.user = user
@@ -27,15 +26,14 @@ def include_dir_files(folder):
     return files
 
 
-
 setup(
     name='spdlog',
     version='1.0.5',
     author='Gergely Bod',
     author_email='bodgergely@hotmail.com',
-    description='python wrapper around C++ spdlog logging library (https://github.com/bodgergely/pyspdlog)',
+    description='python wrapper around C++ spdlog logging library (https://github.com/bodgergely/spdlog-python)',
     license='MIT',
-    long_description='python wrapper (https://github.com/bodgergely/pyspdlog) around C++ spdlog (http://github.com/gabime/spdlog.git) logging library.',
+    long_description='python wrapper (https://github.com/bodgergely/spdlog-python) around C++ spdlog (http://github.com/gabime/spdlog.git) logging library.',
     setup_requires=['pytest-runner'],
     install_requires=['pybind11>=2.2'],
     tests_require=['pytest'],
@@ -56,4 +54,3 @@ setup(
     ],
     zip_safe=False,
 )
-
