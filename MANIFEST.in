@@ -1,0 +1,3 @@
+include README.md LICENSE setup.py setup.cfg
+graft src
+graft spdlog/include/spdlog
