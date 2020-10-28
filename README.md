@@ -5,7 +5,6 @@ spdlog-python
 
 python wrapper around the fast C++ logger called [spdlog](https://github.com/gabime/spdlog)
 
-**Current version: tag - v2.0.0**
 
 Introduction
 ============
@@ -38,13 +37,11 @@ Async mode with 8MB queue with blocking mode.
 Installation
 ============
 
-1) `pip install pybind11` - required
-
-2) `pip install spdlog` will get a distribution from pypi.org
+1) `pip install spdlog` will get a distribution from pypi.org
 
 or
 
-1) from github: 
+2) from github: 
 
 `pip install pybind11` - if missing
 
