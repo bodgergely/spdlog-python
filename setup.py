@@ -58,7 +58,7 @@ setup(
                 get_pybind_include(),
                 get_pybind_include(user=True)
             ],
-            libraries=['stdc++'],
+            # libraries=['stdc++'],
             extra_compile_args=["-std=c++11", "-v"],
             language='c++11'
         )
