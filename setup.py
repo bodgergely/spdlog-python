@@ -3,9 +3,9 @@ import platform
 import sys
 
 import sysconfig
-from distutils.command.install_headers import install_headers
 from setuptools import setup
 from setuptools.extension import Extension
+from distutils.command.install_headers import install_headers
 
 
 class get_pybind_include(object):
@@ -40,7 +40,7 @@ class install_headers_subdir(install_headers):
 
 setup(
     name='spdlog',
-    version='2.0.2',
+    version='2.0.3',
     author='Gergely Bod',
     author_email='bodgergely@hotmail.com',
     description='python wrapper around C++ spdlog logging library (https://github.com/bodgergely/spdlog-python)',
@@ -58,7 +58,7 @@ setup(
                 get_pybind_include(),
                 get_pybind_include(user=True)
             ],
-            libraries=['stdc++'],
+            # libraries=['stdc++'],
             extra_compile_args=["-std=c++11", "-v"],
             language='c++11'
         )

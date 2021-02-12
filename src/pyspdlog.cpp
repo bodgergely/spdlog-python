@@ -19,7 +19,9 @@ using namespace pybind11::literals;
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/stdout_sinks.h>
+#ifndef _WIN32
 #include <spdlog/sinks/syslog_sink.h>
+#endif
 
 #include <iostream>
 #include <memory>
@@ -367,10 +369,10 @@ protected:
 
 class ConsoleLogger : public Logger {
 public:
-    ConsoleLogger(const std::string& logger_name, bool multithreaded, bool stdout, bool colored, bool async_mode = g_async_mode_on)
+    ConsoleLogger(const std::string& logger_name, bool multithreaded, bool standard_out, bool colored, bool async_mode = g_async_mode_on)
         : Logger(logger_name, async_mode)
     {
-        if (stdout) {
+        if (standard_out) {
             if (multithreaded) {
                 if (colored) {
                     if (async_mode) {
