@@ -14,7 +14,7 @@ def link_libs():
     libs = []
     if is_posix():
         libs.append("stdc++")
-    return
+    return libs
 
 class get_pybind_include(object):
     def __init__(self, user=False):
