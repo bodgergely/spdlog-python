@@ -7,6 +7,14 @@ from setuptools import setup
 from setuptools.extension import Extension
 from distutils.command.install_headers import install_headers
 
+def is_posix():
+    return platform.os.name == "posix"
+
+def link_libs():
+    libs = []
+    if is_posix():
+        libs.append("stdc++")
+    return libs
 
 class get_pybind_include(object):
     def __init__(self, user=False):
@@ -40,7 +48,7 @@ class install_headers_subdir(install_headers):
 
 setup(
     name='spdlog',
-    version='2.0.3',
+    version='2.0.4',
     author='Gergely Bod',
     author_email='bodgergely@hotmail.com',
     description='python wrapper around C++ spdlog logging library (https://github.com/bodgergely/spdlog-python)',
@@ -58,7 +66,7 @@ setup(
                 get_pybind_include(),
                 get_pybind_include(user=True)
             ],
-            # libraries=['stdc++'],
+            libraries=link_libs(),
             extra_compile_args=["-std=c++11", "-v"],
             language='c++11'
         )
