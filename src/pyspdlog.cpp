@@ -369,10 +369,10 @@ protected:
 
 class ConsoleLogger : public Logger {
 public:
-    ConsoleLogger(const std::string& logger_name, bool multithreaded, bool stdout, bool colored, bool async_mode = g_async_mode_on)
+    ConsoleLogger(const std::string& logger_name, bool multithreaded, bool standard_out, bool colored, bool async_mode = g_async_mode_on)
         : Logger(logger_name, async_mode)
     {
-        if (stdout) {
+        if (standard_out) {
             if (multithreaded) {
                 if (colored) {
                     if (async_mode) {
