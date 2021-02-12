@@ -3,9 +3,9 @@ import platform
 import sys
 
 import sysconfig
-from distutils.command.install_headers import install_headers
 from setuptools import setup
 from setuptools.extension import Extension
+from distutils.command.install_headers import install_headers
 
 
 class get_pybind_include(object):
