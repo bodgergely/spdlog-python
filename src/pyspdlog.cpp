@@ -19,7 +19,9 @@ using namespace pybind11::literals;
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/stdout_sinks.h>
+#ifndef _WIN32
 #include <spdlog/sinks/syslog_sink.h>
+#endif
 
 #include <iostream>
 #include <memory>
