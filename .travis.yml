@@ -7,7 +7,6 @@ python:
 
 install:
   - git submodule update --init --recursive
-  - pip install pybind11>=2.2
   - pip install .
 
 script: pytest
