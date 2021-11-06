@@ -54,7 +54,7 @@ setup(
     description='python wrapper around C++ spdlog logging library (https://github.com/bodgergely/spdlog-python)',
     license='MIT',
     long_description='python wrapper (https://github.com/bodgergely/spdlog-python) around C++ spdlog (http://github.com/gabime/spdlog.git) logging library.',
-    setup_requires=['pytest-runner'],
+    setup_requires=['pybind11>=2.2', 'wheel', 'pytest-runner'],
     install_requires=['pybind11>=2.2'],
     tests_require=['pytest'],
     ext_modules=[
