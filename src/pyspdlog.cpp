@@ -253,17 +253,17 @@ public:
 #ifdef SPDLOG_ENABLE_SYSLOG
 class syslog_sink_st : public Sink {
 public:
-    syslog_sink_st(const std::string& ident = "", int syslog_option = 0, int syslog_facility = (1 << 3))
+    syslog_sink_st(const std::string& ident = "", int syslog_option = 0, int syslog_facility = (1 << 3), bool enable_formatting = true)
     {
-        _sink = std::make_shared<spdlog::sinks::syslog_sink_st>(ident, syslog_option, syslog_facility);
+        _sink = std::make_shared<spdlog::sinks::syslog_sink_st>(ident, syslog_option, syslog_facility, enable_formatting);
     }
 };
 
 class syslog_sink_mt : public Sink {
 public:
-    syslog_sink_mt(const std::string& ident = "", int syslog_option = 0, int syslog_facility = (1 << 3))
+    syslog_sink_mt(const std::string& ident = "", int syslog_option = 0, int syslog_facility = (1 << 3), bool enable_formatting = true)
     {
-        _sink = std::make_shared<spdlog::sinks::syslog_sink_mt>(ident, syslog_option, syslog_facility);
+        _sink = std::make_shared<spdlog::sinks::syslog_sink_mt>(ident, syslog_option, syslog_facility, enable_formatting);
     }
 };
 #endif
@@ -347,14 +347,9 @@ public:
         return snks;
     }
 
-    void set_error_handler(spd::log_err_handler handler)
+    void set_error_handler(spd::err_handler handler)
     {
         _logger->set_error_handler(handler);
-    }
-
-    spd::log_err_handler error_handler()
-    {
-        return _logger->error_handler();
     }
 
     std::shared_ptr<spdlog::logger> get_underlying_logger() {
@@ -785,7 +780,6 @@ PYBIND11_MODULE(spdlog, m)
         .def("async_mode", &Logger::async)
         .def("sinks", &Logger::sinks)
         .def("set_error_handler", &Logger::set_error_handler)
-        .def("error_handler", &Logger::error_handler)
         .def("get_underlying_logger", &Logger::get_underlying_logger);
 
     py::class_<SinkLogger, Logger>(m, "SinkLogger")
