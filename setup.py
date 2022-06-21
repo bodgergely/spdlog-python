@@ -33,7 +33,7 @@ def get_include_dirs():
 
     conda_prefix = os.environ.get('CONDA_PREFIX')
     if conda_prefix is not None:
-        include_dirs.append("{}/include".format(conda_prefix))
+        include_dirs.append(os.path.join(conda_prefix, "include"))
     
     return include_dirs
 
