@@ -24,6 +24,19 @@ class get_pybind_include(object):
         import pybind11
         return pybind11.get_include(self.user)
 
+def get_include_dirs():
+    include_dirs=[
+        'spdlog/include/',
+        get_pybind_include(),
+        get_pybind_include(user=True),
+    ]
+
+    conda_prefix = os.environ.get('CONDA_PREFIX')
+    if conda_prefix is not None:
+        include_dirs.append(os.path.join(conda_prefix, "include"))
+    
+    return include_dirs
+
 
 def include_dir_files(folder):
     """Find all C++ header files in folder"""
@@ -61,11 +74,7 @@ setup(
         Extension(
             'spdlog',
             ['src/pyspdlog.cpp'],
-            include_dirs=[
-                'spdlog/include/',
-                get_pybind_include(),
-                get_pybind_include(user=True)
-            ],
+            include_dirs=get_include_dirs(),
             libraries=link_libs(),
             extra_compile_args=["-std=c++11", "-v"],
             language='c++11'
