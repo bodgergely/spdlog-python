@@ -2,7 +2,6 @@
 #define SPDLOG_ENABLE_SYSLOG
 #endif
 
-
 #include <pybind11/complex.h>
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
@@ -24,7 +23,6 @@ using namespace pybind11::literals;
 #ifndef _WIN32
 #include <spdlog/sinks/syslog_sink.h>
 #endif
-
 
 #include <iostream>
 #include <memory>
@@ -278,7 +276,7 @@ public:
 #ifdef SPDLOG_ENABLE_SYSLOG
 class syslog_sink_st : public Sink {
 public:
-    syslog_sink_st(const std::string& ident = "", int syslog_option = 0, int syslog_facility = (1 << 3), bool enable_formatting = false)
+    syslog_sink_st(const std::string& ident = "", int syslog_option = 0, int syslog_facility = (1 << 3), bool enable_formatting = true)
     {
         _sink = std::make_shared<spdlog::sinks::syslog_sink_st>(ident, syslog_option, syslog_facility, enable_formatting);
     }
@@ -286,7 +284,7 @@ public:
 
 class syslog_sink_mt : public Sink {
 public:
-    syslog_sink_mt(const std::string& ident = "", int syslog_option = 0, int syslog_facility = (1 << 3), bool enable_formatting = false)
+    syslog_sink_mt(const std::string& ident = "", int syslog_option = 0, int syslog_facility = (1 << 3), bool enable_formatting = true)
     {
         _sink = std::make_shared<spdlog::sinks::syslog_sink_mt>(ident, syslog_option, syslog_facility, enable_formatting);
     }
@@ -885,15 +883,17 @@ py::class_<DailyLogger, Logger>(m, "DailyLogger")
 //SyslogLogger(const std::string& logger_name, const std::string& ident = "", int syslog_option = 0, int syslog_facilty = (1<<3))
 #ifdef SPDLOG_ENABLE_SYSLOG
 py::class_<syslog_sink_st, Sink>(m, "syslog_sink_st")
-    .def(py::init<std::string, int, int>(),
+    .def(py::init<std::string, int, int, bool>(),
         py::arg("ident") = "",
         py::arg("syslog_option") = 0,
-        py::arg("syslog_facility") = (1 << 3));
+        py::arg("syslog_facility") = (1 << 3),
+        py::arg("enable_formatting") = true);
 py::class_<syslog_sink_mt, Sink>(m, "syslog_sink_mt")
-    .def(py::init<std::string, int, int>(),
+    .def(py::init<std::string, int, int, bool>(),
         py::arg("ident") = "",
         py::arg("syslog_option") = 0,
-            py::arg("syslog_facility") = (1 << 3));
+        py::arg("syslog_facility") = (1 << 3),
+        py::arg("enable_formatting") = true);
     py::class_<SyslogLogger, Logger>(m, "SyslogLogger")
         .def(py::init<std::string, bool, std::string, int, int>(),
             py::arg("name"),
