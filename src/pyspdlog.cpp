@@ -2,6 +2,7 @@
 #define SPDLOG_ENABLE_SYSLOG
 #endif
 
+
 #include <pybind11/complex.h>
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
@@ -19,9 +20,11 @@ using namespace pybind11::literals;
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/stdout_sinks.h>
+#include <spdlog/sinks/tcp_sink.h>
 #ifndef _WIN32
 #include <spdlog/sinks/syslog_sink.h>
 #endif
+
 
 #include <iostream>
 #include <memory>
@@ -250,20 +253,42 @@ public:
     }
 };
 
+class tcp_sink_st : public Sink {
+public:
+    tcp_sink_st(std::string server_host, int server_port, bool lazy_connect)
+    {
+        struct spdlog::sinks::tcp_sink_config tcp_config(server_host, server_port);
+        tcp_config.lazy_connect = lazy_connect;
+
+        _sink = std::make_shared<spdlog::sinks::tcp_sink_st>(tcp_config);
+    }
+};
+
+class tcp_sink_mt : public Sink {
+public:
+    tcp_sink_mt(std::string server_host, int server_port, bool lazy_connect)
+    {
+        struct spdlog::sinks::tcp_sink_config tcp_config(server_host, server_port);
+        tcp_config.lazy_connect = lazy_connect;
+
+        _sink = std::make_shared<spdlog::sinks::tcp_sink_mt>(tcp_config);
+    }
+};
+
 #ifdef SPDLOG_ENABLE_SYSLOG
 class syslog_sink_st : public Sink {
 public:
-    syslog_sink_st(const std::string& ident = "", int syslog_option = 0, int syslog_facility = (1 << 3))
+    syslog_sink_st(const std::string& ident = "", int syslog_option = 0, int syslog_facility = (1 << 3), bool enable_formatting = false)
     {
-        _sink = std::make_shared<spdlog::sinks::syslog_sink_st>(ident, syslog_option, syslog_facility);
+        _sink = std::make_shared<spdlog::sinks::syslog_sink_st>(ident, syslog_option, syslog_facility, enable_formatting);
     }
 };
 
 class syslog_sink_mt : public Sink {
 public:
-    syslog_sink_mt(const std::string& ident = "", int syslog_option = 0, int syslog_facility = (1 << 3))
+    syslog_sink_mt(const std::string& ident = "", int syslog_option = 0, int syslog_facility = (1 << 3), bool enable_formatting = false)
     {
-        _sink = std::make_shared<spdlog::sinks::syslog_sink_mt>(ident, syslog_option, syslog_facility);
+        _sink = std::make_shared<spdlog::sinks::syslog_sink_mt>(ident, syslog_option, syslog_facility, enable_formatting);
     }
 };
 #endif
@@ -347,14 +372,9 @@ public:
         return snks;
     }
 
-    void set_error_handler(spd::log_err_handler handler)
+    void set_error_handler(spd::err_handler handler)
     {
         _logger->set_error_handler(handler);
-    }
-
-    spd::log_err_handler error_handler()
-    {
-        return _logger->error_handler();
     }
 
     std::shared_ptr<spdlog::logger> get_underlying_logger() {
@@ -747,6 +767,18 @@ PYBIND11_MODULE(spdlog, m)
     py::class_<null_sink_mt, Sink>(m, "null_sink_mt")
         .def(py::init<>());
 
+    py::class_<tcp_sink_st, Sink>(m, "tcp_sink_st")
+        .def(py::init<std::string, int, bool>(),
+             py::arg("server_host"),
+             py::arg("server_port"),
+             py::arg("lazy_connect"));
+
+    py::class_<tcp_sink_mt, Sink>(m, "tcp_sink_mt")
+        .def(py::init<std::string, int, bool>(),
+             py::arg("server_host"),
+             py::arg("server_port"),
+             py::arg("lazy_connect"));
+
     py::class_<LogLevel>(m, "LogLevel")
         .def_property_readonly_static("TRACE", [](py::object) { return LogLevel::trace; })
         .def_property_readonly_static("DEBUG", [](py::object) { return LogLevel::debug; })
@@ -778,14 +810,13 @@ PYBIND11_MODULE(spdlog, m)
         .def("set_level", &Logger::set_level)
         .def("level", &Logger::level)
         .def("set_pattern", &Logger::set_pattern,
-            py::arg("pattern"), py::arg("type") = spd::pattern_time_type::local)
+            py::arg("pattern"), py::arg("type") = spd::pattern_time_type::local, "type refers to time format and takes 'local' or 'utc'")
         .def("flush_on", &Logger::flush_on)
         .def("flush", &Logger::flush)
         .def("close", &Logger::close)
         .def("async_mode", &Logger::async)
         .def("sinks", &Logger::sinks)
         .def("set_error_handler", &Logger::set_error_handler)
-        .def("error_handler", &Logger::error_handler)
         .def("get_underlying_logger", &Logger::get_underlying_logger);
 
     py::class_<SinkLogger, Logger>(m, "SinkLogger")
