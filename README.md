@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/bodgergely/spdlog-python.svg?branch=master)](https://travis-ci.org/bodgergely/spdlog-python)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/bodgergely/spdlog-python/ci.yaml?branch=master)](https://github.com/bodgergely/spdlog-python/actions)
 
 spdlog-python
 =============
@@ -9,7 +9,7 @@ python wrapper around the fast C++ logger called [spdlog](https://github.com/gab
 Introduction
 ============
 
-Python wrapper (pybind11) around the C++ spdlog logging library. 
+Python wrapper (pybind11) around the C++ spdlog logging library.
 
 Why choose [spdlog](https://github.com/gabime/spdlog)?
 
@@ -41,7 +41,7 @@ Installation
 
 or
 
-2) from github: 
+2) from github:
 
 `pip install pybind11` - if missing
 
@@ -69,4 +69,3 @@ To run the speed test:
 ```bash
 python ./tests/spdlog_vs_logging.py
 ```
-
